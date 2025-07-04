@@ -1,0 +1,404 @@
+use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};
+use anyhow::Result;
+use constellation_core::*;
+use serde_json::Value;
+use std::collections::HashMap;
+use uuid::Uuid;
+
+pub struct CameraInputNode {
+    id: Uuid,
+    config: NodeConfig,
+    properties: NodeProperties,
+}
+
+impl CameraInputNode {
+    pub fn new(id: Uuid, config: NodeConfig) -> Result<Self> {
+        let mut parameters = HashMap::new();
+        parameters.insert(
+            "device_id".to_string(),
+            ParameterDefinition {
+                name: "Device ID".to_string(),
+                parameter_type: ParameterType::String,
+                default_value: Value::String("default".to_string()),
+                min_value: None,
+                max_value: None,
+                description: "Camera device identifier".to_string(),
+            },
+        );
+        parameters.insert(
+            "resolution".to_string(),
+            ParameterDefinition {
+                name: "Resolution".to_string(),
+                parameter_type: ParameterType::Enum(vec![
+                    "1920x1080".to_string(),
+                    "1280x720".to_string(),
+                    "640x480".to_string(),
+                ]),
+                default_value: Value::String("1920x1080".to_string()),
+                min_value: None,
+                max_value: None,
+                description: "Camera resolution".to_string(),
+            },
+        );
+        parameters.insert(
+            "fps".to_string(),
+            ParameterDefinition {
+                name: "Frame Rate".to_string(),
+                parameter_type: ParameterType::Integer,
+                default_value: Value::from(30),
+                min_value: Some(Value::from(1)),
+                max_value: Some(Value::from(60)),
+                description: "Frames per second".to_string(),
+            },
+        );
+
+        let properties = NodeProperties {
+            id,
+            name: "Camera Input".to_string(),
+            node_type: NodeType::Input(InputType::Camera),
+            input_types: vec![],
+            output_types: vec![ConnectionType::Video, ConnectionType::Audio],
+            parameters,
+        };
+
+        Ok(Self {
+            id,
+            config,
+            properties,
+        })
+    }
+}
+
+impl NodeProcessor for CameraInputNode {
+    fn process(&mut self, _input: FrameData) -> Result<FrameData> {
+        Ok(FrameData {
+            video_data: Some(VideoFrame {
+                width: 1920,
+                height: 1080,
+                format: VideoFormat::Rgba8,
+                data: vec![0; 1920 * 1080 * 4],
+            }),
+            audio_data: None,
+            tally_data: None,
+        })
+    }
+
+    fn get_properties(&self) -> NodeProperties {
+        self.properties.clone()
+    }
+
+    fn set_parameter(&mut self, key: &str, value: Value) -> Result<()> {
+        self.config.parameters.insert(key.to_string(), value);
+        Ok(())
+    }
+
+    fn get_parameter(&self, key: &str) -> Option<Value> {
+        self.config.parameters.get(key).cloned()
+    }
+}
+
+pub struct VideoFileInputNode {
+    id: Uuid,
+    config: NodeConfig,
+    properties: NodeProperties,
+}
+
+impl VideoFileInputNode {
+    pub fn new(id: Uuid, config: NodeConfig) -> Result<Self> {
+        let mut parameters = HashMap::new();
+        parameters.insert(
+            "file_path".to_string(),
+            ParameterDefinition {
+                name: "File Path".to_string(),
+                parameter_type: ParameterType::String,
+                default_value: Value::String("".to_string()),
+                min_value: None,
+                max_value: None,
+                description: "Path to video file".to_string(),
+            },
+        );
+        parameters.insert(
+            "loop".to_string(),
+            ParameterDefinition {
+                name: "Loop".to_string(),
+                parameter_type: ParameterType::Boolean,
+                default_value: Value::Bool(false),
+                min_value: None,
+                max_value: None,
+                description: "Loop playback".to_string(),
+            },
+        );
+
+        let properties = NodeProperties {
+            id,
+            name: "Video File Input".to_string(),
+            node_type: NodeType::Input(InputType::VideoFile),
+            input_types: vec![],
+            output_types: vec![ConnectionType::Video, ConnectionType::Audio],
+            parameters,
+        };
+
+        Ok(Self {
+            id,
+            config,
+            properties,
+        })
+    }
+}
+
+impl NodeProcessor for VideoFileInputNode {
+    fn process(&mut self, _input: FrameData) -> Result<FrameData> {
+        Ok(FrameData {
+            video_data: Some(VideoFrame {
+                width: 1920,
+                height: 1080,
+                format: VideoFormat::Rgba8,
+                data: vec![0; 1920 * 1080 * 4],
+            }),
+            audio_data: Some(AudioFrame {
+                sample_rate: 48000,
+                channels: 2,
+                samples: vec![0.0; 1024],
+            }),
+            tally_data: None,
+        })
+    }
+
+    fn get_properties(&self) -> NodeProperties {
+        self.properties.clone()
+    }
+
+    fn set_parameter(&mut self, key: &str, value: Value) -> Result<()> {
+        self.config.parameters.insert(key.to_string(), value);
+        Ok(())
+    }
+
+    fn get_parameter(&self, key: &str) -> Option<Value> {
+        self.config.parameters.get(key).cloned()
+    }
+}
+
+pub struct TestPatternNode {
+    id: Uuid,
+    config: NodeConfig,
+    properties: NodeProperties,
+}
+
+impl TestPatternNode {
+    pub fn new(id: Uuid, config: NodeConfig) -> Result<Self> {
+        let mut parameters = HashMap::new();
+        parameters.insert(
+            "pattern_type".to_string(),
+            ParameterDefinition {
+                name: "Pattern Type".to_string(),
+                parameter_type: ParameterType::Enum(vec![
+                    "Color Bars".to_string(),
+                    "Gradient".to_string(),
+                    "Solid Color".to_string(),
+                    "Noise".to_string(),
+                ]),
+                default_value: Value::String("Color Bars".to_string()),
+                min_value: None,
+                max_value: None,
+                description: "Test pattern type".to_string(),
+            },
+        );
+        parameters.insert(
+            "color".to_string(),
+            ParameterDefinition {
+                name: "Color".to_string(),
+                parameter_type: ParameterType::Color,
+                default_value: Value::Array(vec![
+                    Value::from(1.0),
+                    Value::from(1.0),
+                    Value::from(1.0),
+                    Value::from(1.0),
+                ]),
+                min_value: None,
+                max_value: None,
+                description: "Pattern color (RGBA)".to_string(),
+            },
+        );
+
+        let properties = NodeProperties {
+            id,
+            name: "Test Pattern".to_string(),
+            node_type: NodeType::Input(InputType::TestPattern),
+            input_types: vec![],
+            output_types: vec![ConnectionType::Video],
+            parameters,
+        };
+
+        Ok(Self {
+            id,
+            config,
+            properties,
+        })
+    }
+}
+
+impl NodeProcessor for TestPatternNode {
+    fn process(&mut self, _input: FrameData) -> Result<FrameData> {
+        let pattern_type = self
+            .get_parameter("pattern_type")
+            .and_then(|v| v.as_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| "Color Bars".to_string());
+
+        let frame_data = match pattern_type.as_str() {
+            "Color Bars" => self.generate_color_bars(),
+            "Gradient" => self.generate_gradient(),
+            "Solid Color" => self.generate_solid_color(),
+            "Noise" => self.generate_noise(),
+            _ => self.generate_color_bars(),
+        };
+
+        Ok(FrameData {
+            video_data: Some(frame_data),
+            audio_data: None,
+            tally_data: None,
+        })
+    }
+
+    fn get_properties(&self) -> NodeProperties {
+        self.properties.clone()
+    }
+
+    fn set_parameter(&mut self, key: &str, value: Value) -> Result<()> {
+        self.config.parameters.insert(key.to_string(), value);
+        Ok(())
+    }
+
+    fn get_parameter(&self, key: &str) -> Option<Value> {
+        self.config.parameters.get(key).cloned()
+    }
+}
+
+impl TestPatternNode {
+    fn generate_color_bars(&self) -> VideoFrame {
+        const WIDTH: u32 = 1920;
+        const HEIGHT: u32 = 1080;
+        let mut data = vec![0u8; (WIDTH * HEIGHT * 4) as usize];
+
+        let colors = [
+            [255, 255, 255, 255], // White
+            [255, 255, 0, 255],   // Yellow
+            [0, 255, 255, 255],   // Cyan
+            [0, 255, 0, 255],     // Green
+            [255, 0, 255, 255],   // Magenta
+            [255, 0, 0, 255],     // Red
+            [0, 0, 255, 255],     // Blue
+            [0, 0, 0, 255],       // Black
+        ];
+
+        let bar_width = WIDTH / colors.len() as u32;
+
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let bar_index = (x / bar_width).min(colors.len() as u32 - 1) as usize;
+                let pixel_index = ((y * WIDTH + x) * 4) as usize;
+
+                data[pixel_index] = colors[bar_index][0]; // R
+                data[pixel_index + 1] = colors[bar_index][1]; // G
+                data[pixel_index + 2] = colors[bar_index][2]; // B
+                data[pixel_index + 3] = colors[bar_index][3]; // A
+            }
+        }
+
+        VideoFrame {
+            width: WIDTH,
+            height: HEIGHT,
+            format: VideoFormat::Rgba8,
+            data,
+        }
+    }
+
+    fn generate_gradient(&self) -> VideoFrame {
+        const WIDTH: u32 = 1920;
+        const HEIGHT: u32 = 1080;
+        let mut data = vec![0u8; (WIDTH * HEIGHT * 4) as usize];
+
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let pixel_index = ((y * WIDTH + x) * 4) as usize;
+                let intensity = (x as f32 / WIDTH as f32 * 255.0) as u8;
+
+                data[pixel_index] = intensity; // R
+                data[pixel_index + 1] = intensity; // G
+                data[pixel_index + 2] = intensity; // B
+                data[pixel_index + 3] = 255; // A
+            }
+        }
+
+        VideoFrame {
+            width: WIDTH,
+            height: HEIGHT,
+            format: VideoFormat::Rgba8,
+            data,
+        }
+    }
+
+    fn generate_solid_color(&self) -> VideoFrame {
+        const WIDTH: u32 = 1920;
+        const HEIGHT: u32 = 1080;
+        let mut data = vec![0u8; (WIDTH * HEIGHT * 4) as usize];
+
+        let color = self
+            .get_parameter("color")
+            .and_then(|v| v.as_array().map(|arr| arr.clone()))
+            .unwrap_or_else(|| {
+                vec![
+                    Value::from(1.0),
+                    Value::from(1.0),
+                    Value::from(1.0),
+                    Value::from(1.0),
+                ]
+            });
+
+        let r = (color.get(0).and_then(|v| v.as_f64()).unwrap_or(1.0) * 255.0) as u8;
+        let g = (color.get(1).and_then(|v| v.as_f64()).unwrap_or(1.0) * 255.0) as u8;
+        let b = (color.get(2).and_then(|v| v.as_f64()).unwrap_or(1.0) * 255.0) as u8;
+        let a = (color.get(3).and_then(|v| v.as_f64()).unwrap_or(1.0) * 255.0) as u8;
+
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let pixel_index = ((y * WIDTH + x) * 4) as usize;
+                data[pixel_index] = r;
+                data[pixel_index + 1] = g;
+                data[pixel_index + 2] = b;
+                data[pixel_index + 3] = a;
+            }
+        }
+
+        VideoFrame {
+            width: WIDTH,
+            height: HEIGHT,
+            format: VideoFormat::Rgba8,
+            data,
+        }
+    }
+
+    fn generate_noise(&self) -> VideoFrame {
+        const WIDTH: u32 = 1920;
+        const HEIGHT: u32 = 1080;
+        let mut data = vec![0u8; (WIDTH * HEIGHT * 4) as usize];
+
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let pixel_index = ((y * WIDTH + x) * 4) as usize;
+                let noise = ((x + y) * 123456789) % 256;
+
+                data[pixel_index] = noise as u8;
+                data[pixel_index + 1] = noise as u8;
+                data[pixel_index + 2] = noise as u8;
+                data[pixel_index + 3] = 255;
+            }
+        }
+
+        VideoFrame {
+            width: WIDTH,
+            height: HEIGHT,
+            format: VideoFormat::Rgba8,
+            data,
+        }
+    }
+}

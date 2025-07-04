@@ -1,0 +1,14 @@
+[package]
+name = "constellation-pipeline"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+constellation-core = { path = "../constellation-core" }
+constellation-vulkan = { path = "../constellation-vulkan" }
+constellation-nodes = { path = "../constellation-nodes" }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }

@@ -1,0 +1,19 @@
+[package]
+name = "constellation-web"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+constellation-core = { path = "../constellation-core" }
+constellation-nodes = { path = "../constellation-nodes" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+futures = "0.3"
