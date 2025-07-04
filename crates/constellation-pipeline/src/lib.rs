@@ -1,6 +1,6 @@
+use anyhow::Result;
 use constellation_core::*;
 use constellation_nodes::*;
-use anyhow::Result;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -29,7 +29,7 @@ impl PipelineProcessor {
 
     pub fn process_frame(&mut self, input: FrameData) -> Result<FrameData> {
         let mut current_frame = input;
-        
+
         for &node_id in &self.execution_order {
             if let Some(processor) = self.nodes.get_mut(&node_id) {
                 current_frame = processor.process(current_frame)?;
@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn test_pipeline_processor() {
         let mut pipeline = PipelineProcessor::new();
-        
+
         let node_id = Uuid::new_v4();
         let processor = create_node_processor(
             NodeType::Input(InputType::TestPattern),
@@ -60,16 +60,17 @@ mod tests {
             NodeConfig {
                 parameters: HashMap::new(),
             },
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         pipeline.add_node(node_id, processor);
-        
+
         let input_frame = FrameData {
             video_data: None,
             audio_data: None,
             tally_data: None,
         };
-        
+
         let result = pipeline.process_frame(input_frame);
         assert!(result.is_ok());
     }

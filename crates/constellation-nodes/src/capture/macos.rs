@@ -1,7 +1,7 @@
+use super::{ScreenCaptureBackend, WindowCaptureBackend, WindowInfo};
 #[cfg(target_os = "macos")]
 use anyhow::Result;
-use constellation_core::{VideoFrame, VideoFormat};
-use super::{ScreenCaptureBackend, WindowCaptureBackend, WindowInfo};
+use constellation_core::{VideoFormat, VideoFrame};
 
 use core_graphics::{
     display::{CGDisplayBounds, CGMainDisplayID},
@@ -27,11 +27,11 @@ impl ScreenCaptureBackend for MacOSScreenCapture {
                 CGMainDisplayID() // Simplified for now
             }
         };
-        
+
         let bounds = unsafe { CGDisplayBounds(cg_display) };
         let width = bounds.size.width as u32;
         let height = bounds.size.height as u32;
-        
+
         Ok(Self {
             display_id,
             capture_cursor,
@@ -48,20 +48,18 @@ impl ScreenCaptureBackend for MacOSScreenCapture {
                 CGMainDisplayID() // TODO: Support multiple displays
             }
         };
-        
+
         // Create a screenshot using CGDisplayCreateImage
-        let image = unsafe {
-            core_graphics::display::CGDisplayCreateImage(cg_display)
-        };
-        
+        let image = unsafe { core_graphics::display::CGDisplayCreateImage(cg_display) };
+
         if image.is_null() {
             return Err(anyhow::anyhow!("Failed to capture screen image"));
         }
-        
+
         let frame_data = self.convert_cg_image_to_frame_data(image)?;
-        
+
         // The image will be automatically released when it goes out of scope
-        
+
         Ok(VideoFrame {
             width: self.width,
             height: self.height,
@@ -82,7 +80,7 @@ impl ScreenCaptureBackend for MacOSScreenCapture {
                 CGMainDisplayID() // TODO: Support multiple displays
             }
         };
-        
+
         let bounds = unsafe { CGDisplayBounds(cg_display) };
         Ok((
             bounds.origin.x as u32,
@@ -94,7 +92,10 @@ impl ScreenCaptureBackend for MacOSScreenCapture {
 }
 
 impl MacOSScreenCapture {
-    fn convert_cg_image_to_frame_data(&self, _image: *mut core_graphics::sys::CGImage) -> Result<Vec<u8>> {
+    fn convert_cg_image_to_frame_data(
+        &self,
+        _image: *mut core_graphics::sys::CGImage,
+    ) -> Result<Vec<u8>> {
         // Simplified placeholder implementation
         // In a real implementation, we would properly extract the image data
         let size = (self.width * self.height * 4) as usize;
@@ -112,7 +113,7 @@ impl WindowCaptureBackend for MacOSWindowCapture {
     fn new(window_id: u64) -> Result<Self> {
         let cg_window_id = window_id as CGWindowID;
         let (width, height) = get_window_dimensions(cg_window_id)?;
-        
+
         Ok(Self {
             window_id: cg_window_id,
             width,
@@ -123,7 +124,7 @@ impl WindowCaptureBackend for MacOSWindowCapture {
     fn new_by_title(title: &str) -> Result<Self> {
         let window_id = find_window_by_title(title)?;
         let (width, height) = get_window_dimensions(window_id)?;
-        
+
         Ok(Self {
             window_id,
             width,
@@ -137,22 +138,22 @@ impl WindowCaptureBackend for MacOSWindowCapture {
             core_graphics::window::CGWindowListCreateImage(
                 core_graphics::geometry::CGRect::new(
                     &core_graphics::geometry::CGPoint::new(0.0, 0.0),
-                    &core_graphics::geometry::CGSize::new(self.width as f64, self.height as f64)
+                    &core_graphics::geometry::CGSize::new(self.width as f64, self.height as f64),
                 ),
                 core_graphics::window::kCGWindowListOptionIncludingWindow,
                 self.window_id,
                 core_graphics::window::kCGWindowImageDefault,
             )
         };
-        
+
         if image.is_null() {
             return Err(anyhow::anyhow!("Failed to capture window image"));
         }
-        
+
         let frame_data = self.convert_cg_image_to_frame_data(image)?;
-        
+
         // Image will be automatically released
-        
+
         Ok(VideoFrame {
             width: self.width,
             height: self.height,
@@ -171,7 +172,10 @@ impl WindowCaptureBackend for MacOSWindowCapture {
 }
 
 impl MacOSWindowCapture {
-    fn convert_cg_image_to_frame_data(&self, _image: *mut core_graphics::sys::CGImage) -> Result<Vec<u8>> {
+    fn convert_cg_image_to_frame_data(
+        &self,
+        _image: *mut core_graphics::sys::CGImage,
+    ) -> Result<Vec<u8>> {
         // Simplified placeholder implementation
         let size = (self.width * self.height * 4) as usize;
         Ok(vec![0u8; size])
@@ -182,8 +186,9 @@ impl MacOSWindowCapture {
 pub fn get_display_count() -> Result<u32> {
     unsafe {
         let mut display_count = 0u32;
-        let result = core_graphics::display::CGGetActiveDisplayList(0, ptr::null_mut(), &mut display_count);
-        
+        let result =
+            core_graphics::display::CGGetActiveDisplayList(0, ptr::null_mut(), &mut display_count);
+
         if result == core_graphics::base::kCGErrorSuccess {
             Ok(display_count)
         } else {
@@ -215,12 +220,10 @@ fn find_window_by_title(_title: &str) -> Result<CGWindowID> {
 pub fn get_window_list() -> Result<Vec<WindowInfo>> {
     // Simplified placeholder implementation
     // In a real implementation, this would enumerate actual windows
-    Ok(vec![
-        WindowInfo {
-            id: 1,
-            title: "Test Window".to_string(),
-            process_name: "Test Process".to_string(),
-            bounds: (0, 0, 800, 600),
-        }
-    ])
+    Ok(vec![WindowInfo {
+        id: 1,
+        title: "Test Window".to_string(),
+        process_name: "Test Process".to_string(),
+        bounds: (0, 0, 800, 600),
+    }])
 }

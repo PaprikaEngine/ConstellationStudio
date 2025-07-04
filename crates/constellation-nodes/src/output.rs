@@ -1,6 +1,6 @@
-use constellation_core::*;
 use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};
 use anyhow::Result;
+use constellation_core::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -15,30 +15,43 @@ pub struct VirtualWebcamNode {
 impl VirtualWebcamNode {
     pub fn new(id: Uuid, config: NodeConfig) -> Result<Self> {
         let mut parameters = HashMap::new();
-        parameters.insert("device_name".to_string(), ParameterDefinition {
-            name: "Device Name".to_string(),
-            parameter_type: ParameterType::String,
-            default_value: Value::String("Constellation Studio".to_string()),
-            min_value: None,
-            max_value: None,
-            description: "Virtual camera device name".to_string(),
-        });
-        parameters.insert("resolution".to_string(), ParameterDefinition {
-            name: "Resolution".to_string(),
-            parameter_type: ParameterType::Enum(vec!["1920x1080".to_string(), "1280x720".to_string(), "640x480".to_string()]),
-            default_value: Value::String("1920x1080".to_string()),
-            min_value: None,
-            max_value: None,
-            description: "Output resolution".to_string(),
-        });
-        parameters.insert("fps".to_string(), ParameterDefinition {
-            name: "Frame Rate".to_string(),
-            parameter_type: ParameterType::Integer,
-            default_value: Value::from(30),
-            min_value: Some(Value::from(1)),
-            max_value: Some(Value::from(60)),
-            description: "Output frame rate".to_string(),
-        });
+        parameters.insert(
+            "device_name".to_string(),
+            ParameterDefinition {
+                name: "Device Name".to_string(),
+                parameter_type: ParameterType::String,
+                default_value: Value::String("Constellation Studio".to_string()),
+                min_value: None,
+                max_value: None,
+                description: "Virtual camera device name".to_string(),
+            },
+        );
+        parameters.insert(
+            "resolution".to_string(),
+            ParameterDefinition {
+                name: "Resolution".to_string(),
+                parameter_type: ParameterType::Enum(vec![
+                    "1920x1080".to_string(),
+                    "1280x720".to_string(),
+                    "640x480".to_string(),
+                ]),
+                default_value: Value::String("1920x1080".to_string()),
+                min_value: None,
+                max_value: None,
+                description: "Output resolution".to_string(),
+            },
+        );
+        parameters.insert(
+            "fps".to_string(),
+            ParameterDefinition {
+                name: "Frame Rate".to_string(),
+                parameter_type: ParameterType::Integer,
+                default_value: Value::from(30),
+                min_value: Some(Value::from(1)),
+                max_value: Some(Value::from(60)),
+                description: "Output frame rate".to_string(),
+            },
+        );
 
         let properties = NodeProperties {
             id,
@@ -58,15 +71,18 @@ impl VirtualWebcamNode {
     }
 
     fn initialize_output(&mut self) -> Result<()> {
-        let device_name = self.get_parameter("device_name")
+        let device_name = self
+            .get_parameter("device_name")
             .and_then(|v| v.as_str().map(|s| s.to_string()))
             .unwrap_or_else(|| "Constellation Studio".to_string());
 
-        let resolution = self.get_parameter("resolution")
+        let resolution = self
+            .get_parameter("resolution")
             .and_then(|v| v.as_str().map(|s| s.to_string()))
             .unwrap_or_else(|| "1920x1080".to_string());
 
-        let fps = self.get_parameter("fps")
+        let fps = self
+            .get_parameter("fps")
             .and_then(|v| v.as_i64())
             .unwrap_or(30) as u32;
 
@@ -114,22 +130,28 @@ pub struct PreviewNode {
 impl PreviewNode {
     pub fn new(id: Uuid, config: NodeConfig) -> Result<Self> {
         let mut parameters = HashMap::new();
-        parameters.insert("window_title".to_string(), ParameterDefinition {
-            name: "Window Title".to_string(),
-            parameter_type: ParameterType::String,
-            default_value: Value::String("Preview".to_string()),
-            min_value: None,
-            max_value: None,
-            description: "Preview window title".to_string(),
-        });
-        parameters.insert("show_stats".to_string(), ParameterDefinition {
-            name: "Show Stats".to_string(),
-            parameter_type: ParameterType::Boolean,
-            default_value: Value::Bool(true),
-            min_value: None,
-            max_value: None,
-            description: "Show performance statistics".to_string(),
-        });
+        parameters.insert(
+            "window_title".to_string(),
+            ParameterDefinition {
+                name: "Window Title".to_string(),
+                parameter_type: ParameterType::String,
+                default_value: Value::String("Preview".to_string()),
+                min_value: None,
+                max_value: None,
+                description: "Preview window title".to_string(),
+            },
+        );
+        parameters.insert(
+            "show_stats".to_string(),
+            ParameterDefinition {
+                name: "Show Stats".to_string(),
+                parameter_type: ParameterType::Boolean,
+                default_value: Value::Bool(true),
+                min_value: None,
+                max_value: None,
+                description: "Show performance statistics".to_string(),
+            },
+        );
 
         let properties = NodeProperties {
             id,
@@ -176,14 +198,17 @@ pub struct AudioInputNode {
 impl AudioInputNode {
     pub fn new(id: Uuid, config: NodeConfig) -> Result<Self> {
         let mut parameters = HashMap::new();
-        parameters.insert("device_id".to_string(), ParameterDefinition {
-            name: "Device ID".to_string(),
-            parameter_type: ParameterType::String,
-            default_value: Value::String("default".to_string()),
-            min_value: None,
-            max_value: None,
-            description: "Audio input device".to_string(),
-        });
+        parameters.insert(
+            "device_id".to_string(),
+            ParameterDefinition {
+                name: "Device ID".to_string(),
+                parameter_type: ParameterType::String,
+                default_value: Value::String("default".to_string()),
+                min_value: None,
+                max_value: None,
+                description: "Audio input device".to_string(),
+            },
+        );
 
         let properties = NodeProperties {
             id,
@@ -238,14 +263,17 @@ pub struct AudioMixerNode {
 impl AudioMixerNode {
     pub fn new(id: Uuid, config: NodeConfig) -> Result<Self> {
         let mut parameters = HashMap::new();
-        parameters.insert("master_volume".to_string(), ParameterDefinition {
-            name: "Master Volume".to_string(),
-            parameter_type: ParameterType::Float,
-            default_value: Value::from(1.0),
-            min_value: Some(Value::from(0.0)),
-            max_value: Some(Value::from(2.0)),
-            description: "Master volume level".to_string(),
-        });
+        parameters.insert(
+            "master_volume".to_string(),
+            ParameterDefinition {
+                name: "Master Volume".to_string(),
+                parameter_type: ParameterType::Float,
+                default_value: Value::from(1.0),
+                min_value: Some(Value::from(0.0)),
+                max_value: Some(Value::from(2.0)),
+                description: "Master volume level".to_string(),
+            },
+        );
 
         let properties = NodeProperties {
             id,

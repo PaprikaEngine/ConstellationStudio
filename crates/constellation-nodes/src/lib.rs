@@ -1,18 +1,18 @@
-use constellation_core::*;
 use anyhow::Result;
+use constellation_core::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+pub mod capture;
+pub mod effects;
 pub mod input;
 pub mod output;
-pub mod effects;
-pub mod capture;
 
+pub use capture::{ScreenCaptureNode, WindowCaptureNode};
+pub use effects::*;
 pub use input::*;
 pub use output::*;
-pub use effects::*;
-pub use capture::{ScreenCaptureNode, WindowCaptureNode};
 
 pub trait NodeProcessor: Send {
     fn process(&mut self, input: FrameData) -> Result<FrameData>;
@@ -104,11 +104,8 @@ mod tests {
             parameters: HashMap::new(),
         };
 
-        let result = create_node_processor(
-            NodeType::Input(InputType::TestPattern),
-            node_id,
-            config,
-        );
+        let result =
+            create_node_processor(NodeType::Input(InputType::TestPattern), node_id, config);
 
         assert!(result.is_ok());
     }

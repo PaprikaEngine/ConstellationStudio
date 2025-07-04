@@ -1,18 +1,13 @@
+use super::{ScreenCaptureBackend, WindowCaptureBackend, WindowInfo};
 #[cfg(target_os = "windows")]
 use anyhow::Result;
-use constellation_core::{VideoFrame, VideoFormat};
-use super::{ScreenCaptureBackend, WindowCaptureBackend, WindowInfo};
+use constellation_core::{VideoFormat, VideoFrame};
 
 use windows::{
     core::*,
     Win32::{
         Foundation::*,
-        Graphics::{
-            Direct3D11::*,
-            Dxgi::Common::*,
-            Dxgi::*,
-            Gdi::*,
-        },
+        Graphics::{Direct3D11::*, Dxgi::Common::*, Dxgi::*, Gdi::*},
         System::Com::*,
         UI::WindowsAndMessaging::*,
     },
@@ -31,7 +26,7 @@ pub struct WindowsScreenCapture {
 impl ScreenCaptureBackend for WindowsScreenCapture {
     fn new(display_id: u32, capture_cursor: bool) -> Result<Self> {
         let (width, height) = get_display_dimensions(display_id)?;
-        
+
         Ok(Self {
             display_id,
             capture_cursor,
@@ -45,10 +40,10 @@ impl ScreenCaptureBackend for WindowsScreenCapture {
 
     fn capture_frame(&mut self) -> Result<VideoFrame> {
         self.initialize_capture_context()?;
-        
+
         // Use BitBlt for now (legacy but reliable method)
         let frame_data = self.capture_with_bitblt()?;
-        
+
         Ok(VideoFrame {
             width: self.width,
             height: self.height,
@@ -65,26 +60,26 @@ impl ScreenCaptureBackend for WindowsScreenCapture {
         // Get display bounds for specified display
         let mut display_index = 0;
         let mut bounds = (0, 0, 0, 0);
-        
+
         unsafe {
             let mut enum_context = DisplayEnumContext {
                 target_index: display_id,
                 current_index: 0,
                 found_bounds: None,
             };
-            
+
             EnumDisplayMonitors(
                 None,
                 None,
                 Some(enum_display_proc),
                 LPARAM(&mut enum_context as *mut _ as isize),
             );
-            
+
             if let Some(found_bounds) = enum_context.found_bounds {
                 bounds = found_bounds;
             }
         }
-        
+
         Ok(bounds)
     }
 }
@@ -99,25 +94,29 @@ impl WindowsScreenCapture {
             let hdc = GetDC(None);
             let mem_dc = CreateCompatibleDC(hdc);
             let bitmap = CreateCompatibleBitmap(hdc, self.width as i32, self.height as i32);
-            
+
             if hdc.is_invalid() || mem_dc.is_invalid() || bitmap.is_invalid() {
                 return Err(anyhow::anyhow!("Failed to create capture context"));
             }
-            
+
             SelectObject(mem_dc, bitmap);
-            
+
             self.hdc = Some(hdc);
             self.mem_dc = Some(mem_dc);
             self.bitmap = Some(bitmap);
         }
-        
+
         Ok(())
     }
-    
+
     fn capture_with_bitblt(&mut self) -> Result<Vec<u8>> {
-        let hdc = self.hdc.ok_or_else(|| anyhow::anyhow!("HDC not initialized"))?;
-        let mem_dc = self.mem_dc.ok_or_else(|| anyhow::anyhow!("Memory DC not initialized"))?;
-        
+        let hdc = self
+            .hdc
+            .ok_or_else(|| anyhow::anyhow!("HDC not initialized"))?;
+        let mem_dc = self
+            .mem_dc
+            .ok_or_else(|| anyhow::anyhow!("Memory DC not initialized"))?;
+
         unsafe {
             // Copy screen to memory DC
             if !BitBlt(
@@ -130,12 +129,16 @@ impl WindowsScreenCapture {
                 0,
                 0,
                 SRCCOPY,
-            ).as_bool() {
+            )
+            .as_bool()
+            {
                 return Err(anyhow::anyhow!("BitBlt failed"));
             }
-            
+
             // Get bitmap data
-            let bitmap = self.bitmap.ok_or_else(|| anyhow::anyhow!("Bitmap not initialized"))?;
+            let bitmap = self
+                .bitmap
+                .ok_or_else(|| anyhow::anyhow!("Bitmap not initialized"))?;
             let mut bitmap_info = BITMAPINFO {
                 bmiHeader: BITMAPINFOHEADER {
                     biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
@@ -152,9 +155,9 @@ impl WindowsScreenCapture {
                 },
                 bmiColors: [RGBQUAD::default(); 1],
             };
-            
+
             let mut buffer = vec![0u8; (self.width * self.height * 4) as usize];
-            
+
             let lines = GetDIBits(
                 hdc,
                 bitmap,
@@ -164,11 +167,11 @@ impl WindowsScreenCapture {
                 &mut bitmap_info,
                 DIB_RGB_COLORS,
             );
-            
+
             if lines == 0 {
                 return Err(anyhow::anyhow!("GetDIBits failed"));
             }
-            
+
             Ok(buffer)
         }
     }
@@ -203,7 +206,7 @@ impl WindowCaptureBackend for WindowsWindowCapture {
     fn new(window_id: u64) -> Result<Self> {
         let window_handle = HWND(window_id as isize);
         let (width, height) = get_window_dimensions(window_handle)?;
-        
+
         Ok(Self {
             window_handle,
             width,
@@ -217,7 +220,7 @@ impl WindowCaptureBackend for WindowsWindowCapture {
     fn new_by_title(title: &str) -> Result<Self> {
         let window_handle = find_window_by_title(title)?;
         let (width, height) = get_window_dimensions(window_handle)?;
-        
+
         Ok(Self {
             window_handle,
             width,
@@ -231,7 +234,7 @@ impl WindowCaptureBackend for WindowsWindowCapture {
     fn capture_frame(&mut self) -> Result<VideoFrame> {
         self.initialize_capture_context()?;
         let frame_data = self.capture_window()?;
-        
+
         Ok(VideoFrame {
             width: self.width,
             height: self.height,
@@ -259,29 +262,35 @@ impl WindowsWindowCapture {
             let window_dc = GetWindowDC(self.window_handle);
             let mem_dc = CreateCompatibleDC(window_dc);
             let bitmap = CreateCompatibleBitmap(window_dc, self.width as i32, self.height as i32);
-            
+
             if window_dc.is_invalid() || mem_dc.is_invalid() || bitmap.is_invalid() {
                 return Err(anyhow::anyhow!("Failed to create window capture context"));
             }
-            
+
             SelectObject(mem_dc, bitmap);
-            
+
             self.hdc = Some(window_dc);
             self.mem_dc = Some(mem_dc);
             self.bitmap = Some(bitmap);
         }
-        
+
         Ok(())
     }
-    
+
     fn capture_window(&mut self) -> Result<Vec<u8>> {
-        let window_dc = self.hdc.ok_or_else(|| anyhow::anyhow!("Window DC not initialized"))?;
-        let mem_dc = self.mem_dc.ok_or_else(|| anyhow::anyhow!("Memory DC not initialized"))?;
-        
+        let window_dc = self
+            .hdc
+            .ok_or_else(|| anyhow::anyhow!("Window DC not initialized"))?;
+        let mem_dc = self
+            .mem_dc
+            .ok_or_else(|| anyhow::anyhow!("Memory DC not initialized"))?;
+
         unsafe {
             // Use PrintWindow for better compatibility with modern applications
-            let bitmap = self.bitmap.ok_or_else(|| anyhow::anyhow!("Bitmap not initialized"))?;
-            
+            let bitmap = self
+                .bitmap
+                .ok_or_else(|| anyhow::anyhow!("Bitmap not initialized"))?;
+
             if !PrintWindow(self.window_handle, mem_dc, PRINT_WINDOW_FLAGS(0)).as_bool() {
                 // Fallback to BitBlt if PrintWindow fails
                 if !BitBlt(
@@ -294,11 +303,13 @@ impl WindowsWindowCapture {
                     0,
                     0,
                     SRCCOPY,
-                ).as_bool() {
+                )
+                .as_bool()
+                {
                     return Err(anyhow::anyhow!("Both PrintWindow and BitBlt failed"));
                 }
             }
-            
+
             // Extract bitmap data
             let mut bitmap_info = BITMAPINFO {
                 bmiHeader: BITMAPINFOHEADER {
@@ -316,9 +327,9 @@ impl WindowsWindowCapture {
                 },
                 bmiColors: [RGBQUAD::default(); 1],
             };
-            
+
             let mut buffer = vec![0u8; (self.width * self.height * 4) as usize];
-            
+
             let lines = GetDIBits(
                 window_dc,
                 bitmap,
@@ -328,11 +339,11 @@ impl WindowsWindowCapture {
                 &mut bitmap_info,
                 DIB_RGB_COLORS,
             );
-            
+
             if lines == 0 {
                 return Err(anyhow::anyhow!("GetDIBits failed for window capture"));
             }
-            
+
             Ok(buffer)
         }
     }
@@ -434,13 +445,13 @@ unsafe extern "system" fn enum_display_proc(
     lparam: LPARAM,
 ) -> BOOL {
     let context = &mut *(lparam.0 as *mut DisplayEnumContext);
-    
+
     if context.current_index == context.target_index {
         let mut monitor_info = MONITORINFO {
             cbSize: std::mem::size_of::<MONITORINFO>() as u32,
             ..Default::default()
         };
-        
+
         if GetMonitorInfoW(hmonitor, &mut monitor_info).as_bool() {
             let rect = monitor_info.rcMonitor;
             context.found_bounds = Some((
@@ -450,39 +461,42 @@ unsafe extern "system" fn enum_display_proc(
                 (rect.bottom - rect.top) as u32,
             ));
         }
-        
+
         return FALSE; // Stop enumeration
     }
-    
+
     context.current_index += 1;
     TRUE
 }
 
 fn get_window_list() -> Result<Vec<WindowInfo>> {
     let mut windows = Vec::new();
-    
+
     unsafe {
-        EnumWindows(Some(enum_windows_proc), LPARAM(&mut windows as *mut _ as isize))?;
+        EnumWindows(
+            Some(enum_windows_proc),
+            LPARAM(&mut windows as *mut _ as isize),
+        )?;
     }
-    
+
     Ok(windows)
 }
 
 unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let windows = &mut *(lparam.0 as *mut Vec<WindowInfo>);
-    
+
     // Skip invisible windows
     if !IsWindowVisible(hwnd).as_bool() {
         return TRUE;
     }
-    
+
     // Get window title
     let mut title_buffer = [0u16; 256];
     let title_len = GetWindowTextW(hwnd, &mut title_buffer);
-    
+
     if title_len > 0 {
         let title = String::from_utf16_lossy(&title_buffer[..title_len as usize]);
-        
+
         // Skip windows without meaningful titles
         if !title.is_empty() && title != "Program Manager" {
             let mut rect = RECT::default();
@@ -498,11 +512,11 @@ unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL 
                         (rect.bottom - rect.top) as u32,
                     ),
                 };
-                
+
                 windows.push(window_info);
             }
         }
     }
-    
+
     TRUE
 }

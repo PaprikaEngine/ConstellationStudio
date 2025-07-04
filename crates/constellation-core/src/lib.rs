@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use anyhow::Result;
-use uuid::Uuid;
+use constellation_vulkan::{MemoryManager, VulkanContext};
 use serde::{Deserialize, Serialize};
-use constellation_vulkan::{VulkanContext, MemoryManager};
+use std::collections::HashMap;
+use uuid::Uuid;
 
 pub struct ConstellationEngine {
     #[allow(dead_code)]
@@ -30,7 +30,7 @@ impl ConstellationEngine {
 
     pub fn process_frame(&mut self, input: &FrameData) -> Result<FrameData> {
         let mut current_frame = input.clone();
-        
+
         for processor in &mut self.frame_processors {
             current_frame = processor.process(current_frame)?;
         }
@@ -45,8 +45,14 @@ impl ConstellationEngine {
         Ok(node_id)
     }
 
-    pub fn connect_nodes(&mut self, source_id: Uuid, target_id: Uuid, connection_type: ConnectionType) -> Result<()> {
-        self.node_graph.connect_nodes(source_id, target_id, connection_type)
+    pub fn connect_nodes(
+        &mut self,
+        source_id: Uuid,
+        target_id: Uuid,
+        connection_type: ConnectionType,
+    ) -> Result<()> {
+        self.node_graph
+            .connect_nodes(source_id, target_id, connection_type)
     }
 }
 
@@ -192,12 +198,18 @@ impl NodeGraph {
         self.nodes.insert(node.id, node);
     }
 
-    pub fn connect_nodes(&mut self, source_id: Uuid, target_id: Uuid, connection_type: ConnectionType) -> Result<()> {
+    pub fn connect_nodes(
+        &mut self,
+        source_id: Uuid,
+        target_id: Uuid,
+        connection_type: ConnectionType,
+    ) -> Result<()> {
         if !self.nodes.contains_key(&source_id) || !self.nodes.contains_key(&target_id) {
             return Err(anyhow::anyhow!("One or both nodes not found"));
         }
 
-        self.connections.push((source_id, target_id, connection_type));
+        self.connections
+            .push((source_id, target_id, connection_type));
         Ok(())
     }
 
@@ -262,7 +274,10 @@ mod tests {
         let result = ConstellationEngine::new();
         // Note: This may fail in CI environments without Vulkan drivers
         if result.is_err() {
-            println!("Vulkan initialization failed (expected in CI): {:?}", result.err());
+            println!(
+                "Vulkan initialization failed (expected in CI): {:?}",
+                result.err()
+            );
         }
     }
 
@@ -270,10 +285,14 @@ mod tests {
     fn test_node_graph_operations() {
         let mut graph = NodeGraph::new();
         let node_id = Uuid::new_v4();
-        let node = Node::new(node_id, NodeType::Input(InputType::Camera), NodeConfig {
-            parameters: HashMap::new(),
-        });
-        
+        let node = Node::new(
+            node_id,
+            NodeType::Input(InputType::Camera),
+            NodeConfig {
+                parameters: HashMap::new(),
+            },
+        );
+
         graph.add_node(node);
         assert!(graph.get_node(&node_id).is_some());
     }
@@ -282,13 +301,13 @@ mod tests {
     fn test_frame_processor() {
         let node_id = Uuid::new_v4();
         let mut processor = FrameProcessor::new(node_id, ProcessorType::PassThrough);
-        
+
         let input_frame = FrameData {
             video_data: None,
             audio_data: None,
             tally_data: None,
         };
-        
+
         let result = processor.process(input_frame);
         assert!(result.is_ok());
     }

@@ -1,8 +1,8 @@
-use ash::{Device, Entry, Instance};
+use anyhow::Result;
 use ash::vk;
+use ash::{Device, Entry, Instance};
 use std::collections::VecDeque;
 use std::ffi::CStr;
-use anyhow::Result;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -36,17 +36,12 @@ impl VulkanContext {
         let entry = unsafe { Entry::load()? };
         let instance = Self::create_instance(&entry)?;
         let physical_device = Self::select_physical_device(&instance)?;
-        let (device, queue_family_indices) = Self::create_logical_device(&instance, physical_device)?;
-        
-        let graphics_queue = unsafe {
-            device.get_device_queue(queue_family_indices.graphics, 0)
-        };
-        let compute_queue = unsafe {
-            device.get_device_queue(queue_family_indices.compute, 0)
-        };
-        let transfer_queue = unsafe {
-            device.get_device_queue(queue_family_indices.transfer, 0)
-        };
+        let (device, queue_family_indices) =
+            Self::create_logical_device(&instance, physical_device)?;
+
+        let graphics_queue = unsafe { device.get_device_queue(queue_family_indices.graphics, 0) };
+        let compute_queue = unsafe { device.get_device_queue(queue_family_indices.compute, 0) };
+        let transfer_queue = unsafe { device.get_device_queue(queue_family_indices.transfer, 0) };
 
         let command_pools = Self::create_command_pools(&device, &queue_family_indices)?;
 
@@ -67,9 +62,13 @@ impl VulkanContext {
 
     fn create_instance(entry: &Entry) -> Result<Instance> {
         let app_info = vk::ApplicationInfo {
-            p_application_name: CStr::from_bytes_with_nul(b"Constellation Studio\0").unwrap().as_ptr(),
+            p_application_name: CStr::from_bytes_with_nul(b"Constellation Studio\0")
+                .unwrap()
+                .as_ptr(),
             application_version: vk::make_api_version(0, 1, 0, 0),
-            p_engine_name: CStr::from_bytes_with_nul(b"Constellation Engine\0").unwrap().as_ptr(),
+            p_engine_name: CStr::from_bytes_with_nul(b"Constellation Engine\0")
+                .unwrap()
+                .as_ptr(),
             engine_version: vk::make_api_version(0, 1, 0, 0),
             api_version: vk::API_VERSION_1_2,
             ..Default::default()
@@ -77,11 +76,12 @@ impl VulkanContext {
 
         let layer_names = [
             #[cfg(debug_assertions)]
-            CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0").unwrap().as_ptr(),
+            CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0")
+                .unwrap()
+                .as_ptr(),
         ];
 
-        let extension_names = [
-        ];
+        let extension_names = [];
 
         let create_info = vk::InstanceCreateInfo {
             p_application_info: &app_info,
@@ -93,22 +93,30 @@ impl VulkanContext {
         };
 
         unsafe {
-            entry.create_instance(&create_info, None)
-                .map_err(|e| VulkanError::InitializationFailed(format!("Failed to create instance: {:?}", e)))
+            entry.create_instance(&create_info, None).map_err(|e| {
+                VulkanError::InitializationFailed(format!("Failed to create instance: {:?}", e))
+            })
         }
         .map_err(Into::into)
     }
 
     fn select_physical_device(instance: &Instance) -> Result<vk::PhysicalDevice> {
         let physical_devices = unsafe {
-            instance.enumerate_physical_devices()
-                .map_err(|e| VulkanError::InitializationFailed(format!("Failed to enumerate physical devices: {:?}", e)))?
+            instance.enumerate_physical_devices().map_err(|e| {
+                VulkanError::InitializationFailed(format!(
+                    "Failed to enumerate physical devices: {:?}",
+                    e
+                ))
+            })?
         };
 
         physical_devices
             .into_iter()
             .find(|&device| Self::is_device_suitable(instance, device))
-            .ok_or_else(|| VulkanError::InitializationFailed("No suitable physical device found".to_string()).into())
+            .ok_or_else(|| {
+                VulkanError::InitializationFailed("No suitable physical device found".to_string())
+                    .into()
+            })
     }
 
     fn is_device_suitable(instance: &Instance, device: vk::PhysicalDevice) -> bool {
@@ -154,8 +162,7 @@ impl VulkanContext {
             ..Default::default()
         };
 
-        let device_extensions = [
-        ];
+        let device_extensions = [];
 
         let device_create_info = vk::DeviceCreateInfo {
             queue_create_info_count: queue_create_infos.len() as u32,
@@ -167,8 +174,11 @@ impl VulkanContext {
         };
 
         let device = unsafe {
-            instance.create_device(physical_device, &device_create_info, None)
-                .map_err(|e| VulkanError::DeviceCreationFailed(format!("Failed to create device: {:?}", e)))?
+            instance
+                .create_device(physical_device, &device_create_info, None)
+                .map_err(|e| {
+                    VulkanError::DeviceCreationFailed(format!("Failed to create device: {:?}", e))
+                })?
         };
 
         Ok((device, queue_family_indices))
@@ -178,9 +188,8 @@ impl VulkanContext {
         instance: &Instance,
         physical_device: vk::PhysicalDevice,
     ) -> Result<QueueFamilyIndices> {
-        let queue_families = unsafe {
-            instance.get_physical_device_queue_family_properties(physical_device)
-        };
+        let queue_families =
+            unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
 
         let mut graphics_family = None;
         let mut compute_family = None;
@@ -233,8 +242,14 @@ impl VulkanContext {
             };
 
             let command_pool = unsafe {
-                device.create_command_pool(&pool_create_info, None)
-                    .map_err(|e| VulkanError::CommandBufferCreationFailed(format!("Failed to create command pool: {:?}", e)))?
+                device
+                    .create_command_pool(&pool_create_info, None)
+                    .map_err(|e| {
+                        VulkanError::CommandBufferCreationFailed(format!(
+                            "Failed to create command pool: {:?}",
+                            e
+                        ))
+                    })?
             };
 
             command_pools.push(command_pool);
@@ -277,7 +292,9 @@ pub struct MemoryManager {
 impl MemoryManager {
     pub fn new(context: &VulkanContext) -> Result<Self> {
         let memory_properties = unsafe {
-            context.instance.get_physical_device_memory_properties(context.physical_device)
+            context
+                .instance
+                .get_physical_device_memory_properties(context.physical_device)
         };
 
         let max_allocation_size = memory_properties.memory_heaps[0].size / 4;
@@ -292,7 +309,11 @@ impl MemoryManager {
         })
     }
 
-    pub fn allocate_frame_buffer(&mut self, size: u64, memory_type_index: u32) -> Result<FrameBuffer> {
+    pub fn allocate_frame_buffer(
+        &mut self,
+        size: u64,
+        memory_type_index: u32,
+    ) -> Result<FrameBuffer> {
         if let Some(block) = self.free_blocks.pop_front() {
             if block.size >= size {
                 return Ok(FrameBuffer::from_block(block));
@@ -307,8 +328,14 @@ impl MemoryManager {
         };
 
         let device_memory = unsafe {
-            self.device.allocate_memory(&memory_allocate_info, None)
-                .map_err(|e| VulkanError::MemoryAllocationFailed(format!("Failed to allocate memory: {:?}", e)))?
+            self.device
+                .allocate_memory(&memory_allocate_info, None)
+                .map_err(|e| {
+                    VulkanError::MemoryAllocationFailed(format!(
+                        "Failed to allocate memory: {:?}",
+                        e
+                    ))
+                })?
         };
 
         self.memory_pools.push(device_memory);

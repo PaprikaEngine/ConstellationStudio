@@ -1,5 +1,5 @@
-use constellation_core::*;
 use anyhow::Result;
+use constellation_core::*;
 
 pub struct AudioProcessor {
     sample_rate: u32,
@@ -62,7 +62,7 @@ mod tests {
     #[test]
     fn test_audio_processor() {
         let mut processor = AudioProcessor::new(48000, 2);
-        
+
         let input_frame = AudioFrame {
             sample_rate: 48000,
             channels: 2,
@@ -71,7 +71,7 @@ mod tests {
 
         let result = processor.process_audio(&input_frame);
         assert!(result.is_ok());
-        
+
         let output = result.unwrap();
         assert_eq!(output.sample_rate, 48000);
         assert_eq!(output.channels, 2);
@@ -81,13 +81,13 @@ mod tests {
     #[test]
     fn test_audio_mixing() {
         let processor = AudioProcessor::new(48000, 2);
-        
+
         let frame1 = AudioFrame {
             sample_rate: 48000,
             channels: 2,
             samples: vec![0.5, 0.5],
         };
-        
+
         let frame2 = AudioFrame {
             sample_rate: 48000,
             channels: 2,
@@ -97,7 +97,7 @@ mod tests {
         let inputs = vec![frame1, frame2];
         let result = processor.mix_audio(&inputs);
         assert!(result.is_ok());
-        
+
         let mixed = result.unwrap();
         assert_eq!(mixed.samples[0], 0.4); // (0.5 + 0.3) / 2
         assert_eq!(mixed.samples[1], 0.4); // (0.5 + 0.3) / 2
