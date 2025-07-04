@@ -1,0 +1,97 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.App {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Custom styles for React Flow */
+.react-flow {
+  background: #fafafa;
+}
+
+.react-flow__node-constellation {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.react-flow__node-constellation.selected {
+  border-color: #2196f3;
+  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+}
+
+.react-flow__edge-constellation {
+  stroke-width: 2;
+}
+
+.react-flow__edge-constellation.selected {
+  stroke-width: 3;
+}
+
+/* Handle styles */
+.react-flow__handle {
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.react-flow__handle-top,
+.react-flow__handle-bottom {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.react-flow__handle-left,
+.react-flow__handle-right {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Minimap styles */
+.react-flow__minimap {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(33, 150, 243, 0.1);
+  stroke: #2196f3;
+  stroke-width: 2;
+}
+
+/* Controls styles */
+.react-flow__controls {
+  background: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.react-flow__controls-button {
+  background: #ffffff;
+  border: none;
+  border-bottom: 1px solid #dee2e6;
+  color: #495057;
+  transition: all 0.2s ease;
+}
+
+.react-flow__controls-button:hover {
+  background: #f8f9fa;
+  color: #2196f3;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
