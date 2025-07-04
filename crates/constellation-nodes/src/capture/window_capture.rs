@@ -67,12 +67,20 @@ impl WindowCaptureNode {
             node_type: NodeType::Input(InputType::WindowCapture),
             input_types: vec![],
             output_types: vec![ConnectionType::Video],
-            parameters,
+            parameters: parameters.clone(),
         };
+
+        // Initialize config with default values if not provided
+        let mut initialized_config = config;
+        for (key, param_def) in &parameters {
+            if !initialized_config.parameters.contains_key(key) {
+                initialized_config.parameters.insert(key.clone(), param_def.default_value.clone());
+            }
+        }
 
         Ok(Self {
             id,
-            config,
+            config: initialized_config,
             properties,
             capture_context: None,
         })

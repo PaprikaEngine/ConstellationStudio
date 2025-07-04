@@ -1,14 +1,13 @@
-use ash::{Device, Entry, Instance};
-use ash::vk;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 use anyhow::Result;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use constellation_vulkan::{VulkanContext, MemoryManager};
 
 pub struct ConstellationEngine {
+    #[allow(dead_code)]
     vulkan_context: VulkanContext,
+    #[allow(dead_code)]
     memory_manager: MemoryManager,
     node_graph: NodeGraph,
     frame_processors: Vec<FrameProcessor>,

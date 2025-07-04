@@ -1,6 +1,5 @@
 use constellation_core::*;
 use anyhow::Result;
-use uuid::Uuid;
 
 pub mod screen_capture;
 pub mod window_capture;
@@ -46,6 +45,7 @@ mod tests {
     use crate::NodeProcessor;
     use std::collections::HashMap;
     use serde_json::Value;
+    use uuid::Uuid;
 
     #[test]
     fn test_screen_capture_node_creation() {

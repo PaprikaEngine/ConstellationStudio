@@ -49,7 +49,7 @@ fn test_window_capture_node_integration() {
     assert_eq!(node.get_parameter("follow_window"), Some(serde_json::Value::Bool(true)));
 }
 
-#[cfg(not(ci))]  // Skip actual capture tests in CI
+#[cfg(not(any(feature = "ci", target_env = "ci")))]  // Skip actual capture tests in CI
 #[test]
 fn test_capture_processing_flow() {
     // This test verifies the basic processing flow works

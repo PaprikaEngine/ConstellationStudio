@@ -1,6 +1,6 @@
 use ash::{Device, Entry, Instance};
 use ash::vk;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::ffi::CStr;
 use anyhow::Result;
 use thiserror::Error;
@@ -265,10 +265,12 @@ struct QueueFamilyIndices {
 
 pub struct MemoryManager {
     device: Device,
+    #[allow(dead_code)]
     physical_device: vk::PhysicalDevice,
     memory_pools: Vec<vk::DeviceMemory>,
     free_blocks: VecDeque<MemoryBlock>,
     total_allocated: u64,
+    #[allow(dead_code)]
     max_allocation_size: u64,
 }
 
