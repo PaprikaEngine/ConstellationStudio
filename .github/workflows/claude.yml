@@ -1,0 +1,239 @@
+# Constellation Studio - 次世代メディア制作プラットフォーム
+# リアルタイム映像処理システム (Rust + Ash Vulkan)
+
+name: constellation-studio
+description: |
+  ノードベースのリアルタイム映像処理システム。
+  個人配信者から大手放送局まで対応する次世代メディア制作プラットフォーム。
+  2D映像からVR/XR映像まで、中間レンダリング共有アーキテクチャによる
+  革新的な高品質・低遅延処理を実現。
+
+# プロジェクト構造
+structure: |
+  constellation-studio/
+  ├── crates/
+  │   ├── constellation-core/      # コアエンジン (Ash Vulkan)
+  │   ├── constellation-vulkan/    # Vulkan処理・メモリ管理
+  │   ├── constellation-nodes/     # ノード実装
+  │   ├── constellation-pipeline/  # パイプライン管理
+  │   ├── constellation-audio/     # 音声処理
+  │   ├── constellation-3d/        # 3D処理 (Phase 4)
+  │   └── constellation-web/       # Web API (フロントエンド連携)
+  ├── frontend/                    # React + TypeScript + React Flow
+  ├── shaders/                     # Vulkan compute shaders
+  ├── docs/                        # ドキュメント
+  ├── examples/                    # サンプル・ベンチマーク
+  └── scripts/                     # ビルド・デプロイスクリプト
+
+# 技術スタック
+tech_stack:
+  backend:
+    language: Rust
+    graphics_api: Vulkan (Ash crate)
+    audio: CPAL + symphonia
+    networking: Tokio + Quinn (QUIC)
+    serialization: serde + bincode
+    
+  frontend:
+    framework: React + TypeScript
+    ui_library: React Flow (ノードエディタ)
+    styling: Tailwind CSS
+    state_management: Zustand
+    communication: Tauri (Phase 1) / WASM (Phase 2+)
+    
+  infrastructure:
+    containerization: Docker + Kubernetes
+    cloud: Multi-cloud (AWS/GCP/Azure)
+    monitoring: Prometheus + Grafana
+    ci_cd: GitHub Actions
+
+# 開発フェーズ
+phases:
+  phase_1:
+    name: "Rust + Ash基盤構築"
+    duration: "3-6ヶ月"
+    objectives:
+      - Vulkan初期化・デバイス管理
+      - 高速メモリプール実装
+      - 基本ノードシステム
+      - コンピュートパイプライン
+      - Tauriフロントエンド連携
+      
+  phase_2:
+    name: "2D機能完成"
+    duration: "6-9ヶ月"
+    objectives:
+      - 画面・ウィンドウキャプチャ
+      - 仮想Webカメラ出力
+      - エフェクトライブラリ
+      - SDI/NDI/SRT基本対応
+      - プロ向けUI
+      
+  phase_3:
+    name: "クラウド・スケーラブル化"
+    duration: "9-12ヶ月"
+    objectives:
+      - マイクロサービス化
+      - Kubernetes対応
+      - 自動スケーリング
+      - エッジ配信
+      - SaaS化
+      
+  phase_4:
+    name: "3D/VR/XR対応"
+    duration: "12-18ヶ月"
+    objectives:
+      - 3Dシーングラフ処理
+      - VRデバイス連携
+      - 空間音響処理
+      - メタバース統合
+      - Unity/Unreal連携
+
+# キー機能
+features:
+  core:
+    - 中間レンダリング状態共有
+    - ノードベースパイプライン
+    - リアルタイム処理 (<1ms遅延)
+    - GPU最適化 (Ash Vulkan)
+    - メモリプール管理
+    
+  input_sources:
+    - Webカメラ・USBカメラ
+    - 画面キャプチャ
+    - ウィンドウキャプチャ
+    - ビデオファイル
+    - SDI入力 (Phase 2+)
+    - NDI入力 (Phase 2+)
+    - VRデバイス (Phase 4)
+    
+  output_targets:
+    - 仮想Webカメラ
+    - SDI出力 (Phase 2+)
+    - NDI出力 (Phase 2+)
+    - SRT配信 (Phase 2+)
+    - SMPTE ST 2110 (Phase 2+)
+    - VR/AR出力 (Phase 4)
+    
+  processing:
+    - Video: 色調補正、フィルタ、合成
+    - Audio: ミキサー、エフェクト、空間音響
+    - Tally: 状態管理、論理演算
+    - 3D: シーングラフ、ライティング (Phase 4)
+
+# パフォーマンス目標
+performance_targets:
+  latency:
+    1080p: "<1.2ms"
+    4k: "<6ms"
+    8k: "<24ms"
+  framerate:
+    standard: "60fps"
+    high_end: "120fps (1080p)"
+  memory:
+    efficiency: "ゼロコピー処理"
+    pooling: "事前割り当てプール"
+
+# 対象ユーザー
+target_users:
+  phase_1:
+    - 配信者・コンテンツクリエイター
+    - リモートワーカー
+    - 教育関係者
+  phase_2_3:
+    - 映像制作会社
+    - イベント会社
+    - 企業・放送局
+  phase_4:
+    - VRコンテンツクリエイター
+    - メタバース企業
+    - XR制作会社
+
+# 開発ガイドライン
+development:
+  coding_standards:
+    - Rust標準コーディング規約
+    - clippy + rustfmt必須
+    - unsafe使用時は詳細コメント
+    - パフォーマンステスト必須
+    
+  testing:
+    - 単体テスト: cargo test
+    - 統合テスト: 実デバイステスト
+    - パフォーマンステスト: criterion
+    - メモリリークテスト: valgrind
+    
+  documentation:
+    - API: rustdoc
+    - アーキテクチャ: Markdown + Mermaid
+    - ユーザーマニュアル: mdBook
+    
+  ci_cd:
+    - ビルド: cargo build --release
+    - テスト: cargo test --all
+    - ベンチマーク: cargo bench
+    - セキュリティ: cargo audit
+
+# 依存関係
+dependencies:
+  core:
+    - ash: "0.37" # Vulkan bindings
+    - vulkan-loader: "0.8"
+    - gpu-allocator: "0.25"
+    - bytemuck: "1.14" # 安全な型変換
+    
+  media:
+    - cpal: "0.15" # Audio I/O
+    - symphonia: "0.5" # Audio decoding
+    - image: "0.24" # Image processing
+    - ffmpeg-next: "6.1" # Video codec
+    
+  networking:
+    - tokio: "1.35" # Async runtime
+    - quinn: "0.10" # QUIC protocol
+    - serde: "1.0"
+    - bincode: "1.3"
+    
+  ui:
+    - tauri: "1.5" # Desktop app framework
+    - serde_json: "1.0"
+    
+  math:
+    - nalgebra: "0.32" # Linear algebra
+    - glam: "0.25" # Game math
+    
+  utilities:
+    - rayon: "1.8" # Data parallelism
+    - crossbeam: "0.8" # Concurrent data structures
+    - thiserror: "1.0" # Error handling
+    - tracing: "0.1" # Logging
+
+# セキュリティ
+security:
+  - メモリ安全性: Rustの型システム活用
+  - 入力検証: 全外部入力の厳密検証
+  - 権限管理: 最小権限の原則
+  - 暗号化: TLS 1.3, AES-256
+  - 監査: 定期的なセキュリティ監査
+
+# ライセンス
+license:
+  type: "Apache 2.0 + Commercial"
+  description: |
+    オープンソース版: Apache 2.0
+    商用版: カスタムライセンス (プロ機能・サポート含む)
+
+# 連絡先・リソース
+resources:
+  repository: "https://github.com/constellation-studio/constellation"
+  documentation: "https://docs.constellation-studio.com"
+  community: "https://discord.gg/constellation-studio"
+  support: "support@constellation-studio.com"
+
+# 特記事項
+notes:
+  - 中間レンダリング共有は業界初の革新的アプローチ
+  - Rust + Ashによる安全性と性能の両立
+  - 個人から放送局まで段階的スケーラビリティ
+  - 2D→3D→VR/XRへの発展ロードマップ
+  - メタバース時代の先行者利益獲得を目指す

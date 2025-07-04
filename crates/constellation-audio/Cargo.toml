@@ -1,0 +1,10 @@
+[package]
+name = "constellation-audio"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+constellation-core = { path = "../constellation-core" }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
