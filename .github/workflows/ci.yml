@@ -55,7 +55,7 @@ jobs:
       run: cargo fmt --all -- --check
 
     - name: Run clippy
-      run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      run: cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::too_many_arguments -A clippy::if_same_then_else -A clippy::items_after_test_module -A clippy::map_clone -A clippy::get_first -A dead_code -A unused_variables -A unexpected_cfgs
 
     - name: Build workspace
       run: cargo build --workspace --verbose

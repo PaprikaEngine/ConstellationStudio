@@ -2,7 +2,6 @@ use anyhow::Result;
 use ash::vk;
 use ash::{Device, Entry, Instance};
 use std::collections::VecDeque;
-use std::ffi::CStr;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -62,13 +61,9 @@ impl VulkanContext {
 
     fn create_instance(entry: &Entry) -> Result<Instance> {
         let app_info = vk::ApplicationInfo {
-            p_application_name: CStr::from_bytes_with_nul(b"Constellation Studio\0")
-                .unwrap()
-                .as_ptr(),
+            p_application_name: c"Constellation Studio".as_ptr(),
             application_version: vk::make_api_version(0, 1, 0, 0),
-            p_engine_name: CStr::from_bytes_with_nul(b"Constellation Engine\0")
-                .unwrap()
-                .as_ptr(),
+            p_engine_name: c"Constellation Engine".as_ptr(),
             engine_version: vk::make_api_version(0, 1, 0, 0),
             api_version: vk::API_VERSION_1_2,
             ..Default::default()
@@ -76,9 +71,7 @@ impl VulkanContext {
 
         let layer_names = [
             #[cfg(debug_assertions)]
-            CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0")
-                .unwrap()
-                .as_ptr(),
+            c"VK_LAYER_KHRONOS_validation".as_ptr(),
         ];
 
         let extension_names = [];

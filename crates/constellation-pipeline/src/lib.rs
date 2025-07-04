@@ -9,6 +9,12 @@ pub struct PipelineProcessor {
     execution_order: Vec<Uuid>,
 }
 
+impl Default for PipelineProcessor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PipelineProcessor {
     pub fn new() -> Self {
         Self {

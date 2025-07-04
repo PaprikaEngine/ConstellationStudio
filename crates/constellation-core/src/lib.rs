@@ -186,6 +186,12 @@ pub struct NodeGraph {
     connections: Vec<(Uuid, Uuid, ConnectionType)>,
 }
 
+impl Default for NodeGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NodeGraph {
     pub fn new() -> Self {
         Self {
