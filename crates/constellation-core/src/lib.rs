@@ -223,6 +223,7 @@ impl NodeGraph {
 }
 
 pub struct FrameProcessor {
+    #[allow(dead_code)]
     node_id: Uuid,
     processor_type: ProcessorType,
 }
