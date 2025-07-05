@@ -224,4 +224,3 @@ mod tests {
         assert_eq!(webcam.fps, 60);
     }
 }
-

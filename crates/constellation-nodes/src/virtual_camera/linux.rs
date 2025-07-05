@@ -385,4 +385,3 @@ mod tests {
         assert_eq!(yuv_data.len(), 640 * 480 * 3 / 2);
     }
 }
-

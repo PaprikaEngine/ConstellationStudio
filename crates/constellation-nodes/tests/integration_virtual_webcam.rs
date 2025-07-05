@@ -242,4 +242,3 @@ fn test_macos_core_media_creation() -> Result<()> {
 
     Ok(())
 }
-

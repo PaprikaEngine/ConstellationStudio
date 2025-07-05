@@ -169,4 +169,3 @@ mod tests {
         assert_eq!(config.format, VideoFormat::RGB24);
     }
 }
-
