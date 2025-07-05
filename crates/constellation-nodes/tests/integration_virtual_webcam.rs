@@ -139,6 +139,9 @@ fn test_virtual_webcam_frame_processing() -> Result<()> {
         video_data: Some(video_frame),
         audio_data: None,
         tally_data: None,
+        scene3d_data: None,
+        spatial_audio_data: None,
+        transform_data: None,
     };
 
     // Process frame - should not fail even if virtual webcam can't actually start

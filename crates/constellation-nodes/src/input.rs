@@ -80,6 +80,9 @@ impl NodeProcessor for CameraInputNode {
             }),
             audio_data: None,
             tally_data: None,
+            scene3d_data: None,
+            spatial_audio_data: None,
+            transform_data: None,
         })
     }
 
@@ -161,6 +164,9 @@ impl NodeProcessor for VideoFileInputNode {
                 samples: vec![0.0; 1024],
             }),
             tally_data: None,
+            scene3d_data: None,
+            spatial_audio_data: None,
+            transform_data: None,
         })
     }
 
@@ -256,6 +262,9 @@ impl NodeProcessor for TestPatternNode {
             video_data: Some(frame_data),
             audio_data: None,
             tally_data: None,
+            scene3d_data: None,
+            spatial_audio_data: None,
+            transform_data: None,
         })
     }
 

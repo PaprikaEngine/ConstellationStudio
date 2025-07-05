@@ -141,6 +141,9 @@ impl NodeProcessor for WindowCaptureNode {
             video_data: Some(frame),
             audio_data: None,
             tally_data: None,
+            scene3d_data: None,
+            spatial_audio_data: None,
+            transform_data: None,
         })
     }
 

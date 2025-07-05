@@ -101,6 +101,9 @@ fn test_capture_processing_flow() {
         video_data: None,
         audio_data: None,
         tally_data: None,
+        scene3d_data: None,
+        spatial_audio_data: None,
+        transform_data: None,
     };
 
     // Try to process a frame - this will either succeed (on systems with displays)
