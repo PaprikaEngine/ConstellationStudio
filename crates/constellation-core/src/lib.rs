@@ -61,6 +61,10 @@ pub struct FrameData {
     pub video_data: Option<VideoFrame>,
     pub audio_data: Option<AudioFrame>,
     pub tally_data: Option<TallyData>,
+    // Phase 4: 3D/VR/XR対応拡張
+    pub scene3d_data: Option<Scene3DData>,
+    pub spatial_audio_data: Option<SpatialAudioData>,
+    pub transform_data: Option<TransformData>,
 }
 
 #[derive(Debug, Clone)]
@@ -85,7 +89,124 @@ pub struct TallyData {
     pub custom_tally: HashMap<String, bool>,
 }
 
+// Phase 4: 3D/VR/XR対応データ構造
+
 #[derive(Debug, Clone)]
+pub struct Scene3DData {
+    pub meshes: Vec<Mesh3D>,
+    pub materials: Vec<Material3D>,
+    pub lights: Vec<Light3D>,
+    pub camera: Camera3D,
+    pub transform_matrix: [f32; 16], // 4x4 transformation matrix
+}
+
+#[derive(Debug, Clone)]
+pub struct SpatialAudioData {
+    pub audio_sources: Vec<SpatialAudioSource>,
+    pub listener_position: Vector3,
+    pub listener_orientation: Vector3,
+    pub room_impulse_response: Option<Vec<f32>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransformData {
+    pub position: Vector3,
+    pub rotation: Quaternion,
+    pub scale: Vector3,
+    pub view_matrix: [f32; 16],
+    pub projection_matrix: [f32; 16],
+    pub mvp_matrix: [f32; 16], // Model-View-Projection matrix
+}
+
+// 3D補助データ構造
+
+#[derive(Debug, Clone)]
+pub struct Mesh3D {
+    pub vertices: Vec<Vertex3D>,
+    pub indices: Vec<u32>,
+    pub material_id: Option<u32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Vertex3D {
+    pub position: Vector3,
+    pub normal: Vector3,
+    pub uv: Vector2,
+    pub color: [f32; 4], // RGBA
+}
+
+#[derive(Debug, Clone)]
+pub struct Material3D {
+    pub id: u32,
+    pub albedo: [f32; 4], // RGBA
+    pub metallic: f32,
+    pub roughness: f32,
+    pub emission: [f32; 3], // RGB
+    pub texture_ids: Vec<u32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Light3D {
+    pub light_type: LightType,
+    pub position: Vector3,
+    pub direction: Vector3,
+    pub color: [f32; 3], // RGB
+    pub intensity: f32,
+    pub range: f32,
+    pub spot_angle: f32, // For spot lights
+}
+
+#[derive(Debug, Clone)]
+pub struct Camera3D {
+    pub position: Vector3,
+    pub target: Vector3,
+    pub up: Vector3,
+    pub fov: f32,
+    pub near_plane: f32,
+    pub far_plane: f32,
+    pub aspect_ratio: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct SpatialAudioSource {
+    pub position: Vector3,
+    pub velocity: Vector3,
+    pub audio_data: Vec<f32>,
+    pub sample_rate: u32,
+    pub attenuation: f32,
+    pub doppler_factor: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct Vector3 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct Vector2 {
+    pub x: f32,
+    pub y: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct Quaternion {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub w: f32,
+}
+
+#[derive(Debug, Clone)]
+pub enum LightType {
+    Directional,
+    Point,
+    Spot,
+    Area,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VideoFormat {
     Rgba8,
     Rgb8,
@@ -148,6 +269,10 @@ pub enum ConnectionType {
     Video,
     Audio,
     Tally,
+    // Phase 4: 3D/VR/XR対応拡張
+    Scene3D,       // 3D Scene線: 3Dシーングラフデータ伝送
+    SpatialAudio,  // Spatial Audio線: 3D位置情報付き音声伝送
+    Transform,     // Transform線: 3D変換・カメラパラメータ伝送
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -313,6 +438,9 @@ mod tests {
             video_data: None,
             audio_data: None,
             tally_data: None,
+            scene3d_data: None,
+            spatial_audio_data: None,
+            transform_data: None,
         };
 
         let result = processor.process(input_frame);

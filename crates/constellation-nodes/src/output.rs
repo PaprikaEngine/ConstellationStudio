@@ -279,6 +279,9 @@ impl NodeProcessor for AudioInputNode {
                 samples: vec![0.0; 1024],
             }),
             tally_data: None,
+            scene3d_data: None,
+            spatial_audio_data: None,
+            transform_data: None,
         })
     }
 
@@ -476,6 +479,9 @@ impl NodeProcessor for TallyGeneratorNode {
                 preview_tally: false,
                 custom_tally: HashMap::new(),
             }),
+            scene3d_data: None,
+            spatial_audio_data: None,
+            transform_data: None,
         })
     }
 

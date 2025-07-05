@@ -75,6 +75,9 @@ mod tests {
             video_data: None,
             audio_data: None,
             tally_data: None,
+            scene3d_data: None,
+            spatial_audio_data: None,
+            transform_data: None,
         };
 
         let result = pipeline.process_frame(input_frame);

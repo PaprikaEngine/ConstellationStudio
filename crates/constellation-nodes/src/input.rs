@@ -1,14 +1,18 @@
 use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};
+use crate::camera::CameraCapture;
+use crate::video_file::VideoFileReader;
 use anyhow::Result;
 use constellation_core::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use uuid::Uuid;
+use tracing::{debug, error, info};
 
 pub struct CameraInputNode {
     id: Uuid,
     config: NodeConfig,
     properties: NodeProperties,
+    camera_capture: Option<CameraCapture>,
 }
 
 impl CameraInputNode {
@@ -65,21 +69,73 @@ impl CameraInputNode {
             id,
             config,
             properties,
+            camera_capture: None,
         })
     }
 }
 
 impl NodeProcessor for CameraInputNode {
     fn process(&mut self, _input: FrameData) -> Result<FrameData> {
+        // Initialize camera capture if not already done
+        if self.camera_capture.is_none() {
+            if let Err(e) = self.initialize_camera() {
+                error!("Failed to initialize camera: {}", e);
+                // Continue with fallback frame instead of failing
+            }
+        }
+
+        // Capture frame from camera
+        let video_frame = if let Some(ref mut camera) = self.camera_capture {
+            if !camera.is_running() {
+                match camera.start_capture() {
+                    Ok(_) => {
+                        info!("Camera capture started successfully");
+                    },
+                    Err(e) => {
+                        error!("Failed to start camera capture: {}", e);
+                        return Ok(FrameData {
+                            video_data: Some(self.create_fallback_frame()),
+                            audio_data: Some(AudioFrame {
+                                sample_rate: 48000,
+                                channels: 2,
+                                samples: vec![0.0; 1024],
+                            }),
+                            tally_data: None,
+                            scene3d_data: None,
+                            spatial_audio_data: None,
+                            transform_data: None,
+                        });
+                    }
+                }
+            }
+            
+            match camera.capture_frame() {
+                Ok(frame) => {
+                    debug!("Successfully captured frame: {}x{}", frame.width, frame.height);
+                    Some(frame)
+                },
+                Err(e) => {
+                    error!("Failed to capture frame: {}", e);
+                    // Return a fallback frame instead of failing
+                    Some(self.create_fallback_frame())
+                }
+            }
+        } else {
+            error!("Camera capture not initialized, using fallback frame");
+            Some(self.create_fallback_frame())
+        };
+
         Ok(FrameData {
-            video_data: Some(VideoFrame {
-                width: 1920,
-                height: 1080,
-                format: VideoFormat::Rgba8,
-                data: vec![0; 1920 * 1080 * 4],
+            video_data: video_frame,
+            audio_data: Some(AudioFrame {
+                sample_rate: 48000,
+                channels: 2,
+                samples: vec![0.0; 1024],
             }),
-            audio_data: None,
             tally_data: None,
+            scene3d_data: None,
+            spatial_audio_data: None,
+            transform_data: None,
         })
     }
 
@@ -89,6 +145,8 @@ impl NodeProcessor for CameraInputNode {
 
     fn set_parameter(&mut self, key: &str, value: Value) -> Result<()> {
         self.config.parameters.insert(key.to_string(), value);
+        // Reset camera capture to apply new parameters
+        self.camera_capture = None;
         Ok(())
     }
 
@@ -97,10 +155,93 @@ impl NodeProcessor for CameraInputNode {
     }
 }
 
+impl CameraInputNode {
+    fn initialize_camera(&mut self) -> Result<()> {
+        info!("Initializing camera capture");
+
+        // Get parameters from config
+        let device_index = self.config.parameters
+            .get("device_id")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(0);
+
+        let (width, height) = self.parse_resolution()?;
+        
+        let fps = self.config.parameters
+            .get("fps")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(30) as u32;
+
+        // Create camera capture instance
+        let camera = CameraCapture::new(device_index, width, height, fps)?;
+        
+        info!("Camera capture initialized: device={}, {}x{}@{}", 
+              device_index, width, height, fps);
+
+        self.camera_capture = Some(camera);
+        Ok(())
+    }
+
+    fn parse_resolution(&self) -> Result<(u32, u32)> {
+        let resolution = self.config.parameters
+            .get("resolution")
+            .and_then(|v| v.as_str())
+            .unwrap_or("1920x1080");
+
+        let parts: Vec<&str> = resolution.split('x').collect();
+        if parts.len() != 2 {
+            return Err(anyhow::anyhow!("Invalid resolution format: {}", resolution));
+        }
+
+        let width = parts[0].parse::<u32>()
+            .map_err(|_| anyhow::anyhow!("Invalid width: {}", parts[0]))?;
+        let height = parts[1].parse::<u32>()
+            .map_err(|_| anyhow::anyhow!("Invalid height: {}", parts[1]))?;
+
+        Ok((width, height))
+    }
+
+    fn create_fallback_frame(&self) -> VideoFrame {
+        let (width, height) = self.parse_resolution().unwrap_or((1920, 1080));
+        
+        // Create a simple error pattern (red frame with diagonal lines)
+        let frame_size = (width * height * 4) as usize;
+        let mut data = vec![0u8; frame_size];
+        
+        for y in 0..height {
+            for x in 0..width {
+                let idx = ((y * width + x) * 4) as usize;
+                
+                // Create diagonal stripes pattern for error indication
+                if (x + y) % 32 < 16 {
+                    data[idx] = 255;     // R - red error pattern
+                    data[idx + 1] = 0;   // G
+                    data[idx + 2] = 0;   // B
+                    data[idx + 3] = 255; // A
+                } else {
+                    data[idx] = 128;     // R - darker red
+                    data[idx + 1] = 0;   // G
+                    data[idx + 2] = 0;   // B
+                    data[idx + 3] = 255; // A
+                }
+            }
+        }
+
+        VideoFrame {
+            width,
+            height,
+            format: VideoFormat::Rgba8,
+            data,
+        }
+    }
+}
+
 pub struct VideoFileInputNode {
     id: Uuid,
     config: NodeConfig,
     properties: NodeProperties,
+    video_reader: Option<VideoFileReader>,
 }
 
 impl VideoFileInputNode {
@@ -142,25 +283,47 @@ impl VideoFileInputNode {
             id,
             config,
             properties,
+            video_reader: None,
         })
     }
 }
 
 impl NodeProcessor for VideoFileInputNode {
     fn process(&mut self, _input: FrameData) -> Result<FrameData> {
+        // Initialize video reader if not already done
+        if self.video_reader.is_none() {
+            if let Err(e) = self.initialize_video_reader() {
+                error!("Failed to initialize video reader: {}", e);
+                // Continue with fallback instead of failing
+            }
+        }
+
+        // Read frame from video file
+        let (video_frame, audio_frame) = if let Some(ref mut reader) = self.video_reader {
+            match reader.read_frame() {
+                Ok((video, audio)) => {
+                    debug!("Successfully read frame from video file: {}x{}", 
+                           video.width, video.height);
+                    (Some(video), audio)
+                },
+                Err(e) => {
+                    error!("Failed to read frame from video file: {}", e);
+                    // Return a fallback frame instead of failing
+                    (Some(self.create_fallback_video_frame()), Some(self.create_fallback_audio_frame()))
+                }
+            }
+        } else {
+            error!("Video reader not initialized, using fallback");
+            (Some(self.create_fallback_video_frame()), Some(self.create_fallback_audio_frame()))
+        };
+
         Ok(FrameData {
-            video_data: Some(VideoFrame {
-                width: 1920,
-                height: 1080,
-                format: VideoFormat::Rgba8,
-                data: vec![0; 1920 * 1080 * 4],
-            }),
-            audio_data: Some(AudioFrame {
-                sample_rate: 48000,
-                channels: 2,
-                samples: vec![0.0; 1024],
-            }),
+            video_data: video_frame,
+            audio_data: audio_frame,
             tally_data: None,
+            scene3d_data: None,
+            spatial_audio_data: None,
+            transform_data: None,
         })
     }
 
@@ -170,11 +333,92 @@ impl NodeProcessor for VideoFileInputNode {
 
     fn set_parameter(&mut self, key: &str, value: Value) -> Result<()> {
         self.config.parameters.insert(key.to_string(), value);
+        // Reset video reader to apply new parameters
+        self.video_reader = None;
         Ok(())
     }
 
     fn get_parameter(&self, key: &str) -> Option<Value> {
         self.config.parameters.get(key).cloned()
+    }
+}
+
+impl VideoFileInputNode {
+    fn initialize_video_reader(&mut self) -> Result<()> {
+        info!("Initializing video file reader");
+
+        // Get file path from parameters
+        let file_path = self.config.parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        if file_path.is_empty() {
+            return Err(anyhow::anyhow!("No video file path specified"));
+        }
+
+        info!("Opening video file: {}", file_path);
+
+        // Create video reader
+        let mut reader = VideoFileReader::new(file_path)?;
+
+        // Set loop playback if enabled
+        let loop_playback = self.config.parameters
+            .get("loop")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        reader.set_loop_playback(loop_playback);
+
+        // Open the video file immediately during initialization
+        reader.open()?;
+
+        self.video_reader = Some(reader);
+        info!("Video file reader initialized and opened successfully");
+        Ok(())
+    }
+
+    fn create_fallback_video_frame(&self) -> VideoFrame {
+        let width = 1920;
+        let height = 1080;
+        
+        // Create a "No Video" pattern (blue frame with text pattern)
+        let frame_size = (width * height * 4) as usize;
+        let mut data = vec![0u8; frame_size];
+        
+        for y in 0..height {
+            for x in 0..width {
+                let idx = ((y * width + x) * 4) as usize;
+                
+                // Create a blue background with white diagonal stripes
+                if (x + y) % 64 < 32 {
+                    data[idx] = 64;      // R - dark blue
+                    data[idx + 1] = 64;  // G
+                    data[idx + 2] = 255; // B - blue
+                    data[idx + 3] = 255; // A
+                } else {
+                    data[idx] = 128;     // R - lighter blue
+                    data[idx + 1] = 128; // G
+                    data[idx + 2] = 255; // B
+                    data[idx + 3] = 255; // A
+                }
+            }
+        }
+
+        VideoFrame {
+            width,
+            height,
+            format: VideoFormat::Rgba8,
+            data,
+        }
+    }
+
+    fn create_fallback_audio_frame(&self) -> AudioFrame {
+        AudioFrame {
+            sample_rate: 48000,
+            channels: 2,
+            samples: vec![0.0; 2048], // Silent audio
+        }
     }
 }
 
@@ -256,6 +500,9 @@ impl NodeProcessor for TestPatternNode {
             video_data: Some(frame_data),
             audio_data: None,
             tally_data: None,
+            scene3d_data: None,
+            spatial_audio_data: None,
+            transform_data: None,
         })
     }
 

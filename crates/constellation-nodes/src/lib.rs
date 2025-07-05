@@ -4,16 +4,21 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+pub mod camera;
 pub mod capture;
 pub mod effects;
 pub mod input;
 pub mod output;
+pub mod video_file;
 pub mod virtual_camera;
 
 pub use capture::{ScreenCaptureNode, WindowCaptureNode};
 pub use effects::*;
 pub use input::*;
 pub use output::*;
+
+// Export types needed for tests  
+pub use constellation_core::NodeConfig;
 
 pub trait NodeProcessor: Send {
     fn process(&mut self, input: FrameData) -> Result<FrameData>;
