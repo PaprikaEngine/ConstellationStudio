@@ -322,9 +322,7 @@ impl MemoryManager {
             self.device
                 .allocate_memory(&memory_allocate_info, None)
                 .map_err(|e| {
-                    VulkanError::MemoryAllocationFailed(format!(
-                        "Failed to allocate memory: {e:?}"
-                    ))
+                    VulkanError::MemoryAllocationFailed(format!("Failed to allocate memory: {e:?}"))
                 })?
         };
 
