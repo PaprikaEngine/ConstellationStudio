@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [ main, feature/* ]
+    branches: [ main, feature/*, fix/* ]
   pull_request:
+    types: [opened, synchronize, reopened]
     branches: [ main ]
+
+permissions:
+  pull-requests: write # CodeReview.aiのために必要
 
 env:
   CARGO_TERM_COLOR: always
@@ -71,6 +75,7 @@ jobs:
 
   security:
     name: Security Audit
+    needs: test
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -87,6 +92,7 @@ jobs:
 
   coverage:
     name: Code Coverage
+    needs: test
     runs-on: ubuntu-latest
     continue-on-error: true  # Don't fail CI if coverage fails
     steps:
@@ -114,7 +120,19 @@ jobs:
 
     - name: Upload coverage to Codecov
       if: success()
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         files: ./cobertura.xml
         fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }} # 推奨
+
+  code-review:
+    name: AI Code Review
+    # プルリクエストの時のみ実行
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code Review
+        uses: CodeReview-ai/codereview-action@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
