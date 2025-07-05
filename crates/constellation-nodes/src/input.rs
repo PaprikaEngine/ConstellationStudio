@@ -1,5 +1,6 @@
 use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};
 use crate::camera::CameraCapture;
+use crate::video_file::VideoFileReader;
 use anyhow::Result;
 use constellation_core::*;
 use serde_json::Value;
@@ -214,6 +215,7 @@ pub struct VideoFileInputNode {
     id: Uuid,
     config: NodeConfig,
     properties: NodeProperties,
+    video_reader: Option<VideoFileReader>,
 }
 
 impl VideoFileInputNode {
@@ -255,24 +257,44 @@ impl VideoFileInputNode {
             id,
             config,
             properties,
+            video_reader: None,
         })
     }
 }
 
 impl NodeProcessor for VideoFileInputNode {
     fn process(&mut self, _input: FrameData) -> Result<FrameData> {
+        // Initialize video reader if not already done
+        if self.video_reader.is_none() {
+            self.initialize_video_reader()?;
+        }
+
+        // Read frame from video file
+        let (video_frame, audio_frame) = if let Some(ref mut reader) = self.video_reader {
+            if !reader.is_open() {
+                reader.open()?;
+            }
+            
+            match reader.read_frame() {
+                Ok((video, audio)) => {
+                    debug!("Successfully read frame from video file: {}x{}", 
+                           video.width, video.height);
+                    (Some(video), audio)
+                },
+                Err(e) => {
+                    error!("Failed to read frame from video file: {}", e);
+                    // Return a fallback frame instead of failing
+                    (Some(self.create_fallback_video_frame()), Some(self.create_fallback_audio_frame()))
+                }
+            }
+        } else {
+            error!("Video reader not initialized");
+            (Some(self.create_fallback_video_frame()), Some(self.create_fallback_audio_frame()))
+        };
+
         Ok(FrameData {
-            video_data: Some(VideoFrame {
-                width: 1920,
-                height: 1080,
-                format: VideoFormat::Rgba8,
-                data: vec![0; 1920 * 1080 * 4],
-            }),
-            audio_data: Some(AudioFrame {
-                sample_rate: 48000,
-                channels: 2,
-                samples: vec![0.0; 1024],
-            }),
+            video_data: video_frame,
+            audio_data: audio_frame,
             tally_data: None,
             scene3d_data: None,
             spatial_audio_data: None,
@@ -286,11 +308,89 @@ impl NodeProcessor for VideoFileInputNode {
 
     fn set_parameter(&mut self, key: &str, value: Value) -> Result<()> {
         self.config.parameters.insert(key.to_string(), value);
+        // Reset video reader to apply new parameters
+        self.video_reader = None;
         Ok(())
     }
 
     fn get_parameter(&self, key: &str) -> Option<Value> {
         self.config.parameters.get(key).cloned()
+    }
+}
+
+impl VideoFileInputNode {
+    fn initialize_video_reader(&mut self) -> Result<()> {
+        info!("Initializing video file reader");
+
+        // Get file path from parameters
+        let file_path = self.config.parameters
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        if file_path.is_empty() {
+            return Err(anyhow::anyhow!("No video file path specified"));
+        }
+
+        info!("Opening video file: {}", file_path);
+
+        // Create video reader
+        let mut reader = VideoFileReader::new(file_path)?;
+
+        // Set loop playback if enabled
+        let loop_playback = self.config.parameters
+            .get("loop")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        reader.set_loop_playback(loop_playback);
+
+        self.video_reader = Some(reader);
+        info!("Video file reader initialized successfully");
+        Ok(())
+    }
+
+    fn create_fallback_video_frame(&self) -> VideoFrame {
+        let width = 1920;
+        let height = 1080;
+        
+        // Create a "No Video" pattern (blue frame with text pattern)
+        let frame_size = (width * height * 4) as usize;
+        let mut data = vec![0u8; frame_size];
+        
+        for y in 0..height {
+            for x in 0..width {
+                let idx = ((y * width + x) * 4) as usize;
+                
+                // Create a blue background with white diagonal stripes
+                if (x + y) % 64 < 32 {
+                    data[idx] = 64;      // R - dark blue
+                    data[idx + 1] = 64;  // G
+                    data[idx + 2] = 255; // B - blue
+                    data[idx + 3] = 255; // A
+                } else {
+                    data[idx] = 128;     // R - lighter blue
+                    data[idx + 1] = 128; // G
+                    data[idx + 2] = 255; // B
+                    data[idx + 3] = 255; // A
+                }
+            }
+        }
+
+        VideoFrame {
+            width,
+            height,
+            format: VideoFormat::Rgba8,
+            data,
+        }
+    }
+
+    fn create_fallback_audio_frame(&self) -> AudioFrame {
+        AudioFrame {
+            sample_rate: 48000,
+            channels: 2,
+            samples: vec![0.0; 2048], // Silent audio
+        }
     }
 }
 

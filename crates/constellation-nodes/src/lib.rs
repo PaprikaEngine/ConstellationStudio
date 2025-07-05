@@ -9,6 +9,7 @@ pub mod capture;
 pub mod effects;
 pub mod input;
 pub mod output;
+pub mod video_file;
 pub mod virtual_camera;
 
 pub use capture::{ScreenCaptureNode, WindowCaptureNode};
