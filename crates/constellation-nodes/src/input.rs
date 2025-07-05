@@ -1,14 +1,17 @@
 use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};
+use crate::camera::CameraCapture;
 use anyhow::Result;
 use constellation_core::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use uuid::Uuid;
+use tracing::{debug, error, info};
 
 pub struct CameraInputNode {
     id: Uuid,
     config: NodeConfig,
     properties: NodeProperties,
+    camera_capture: Option<CameraCapture>,
 }
 
 impl CameraInputNode {
@@ -65,20 +68,43 @@ impl CameraInputNode {
             id,
             config,
             properties,
+            camera_capture: None,
         })
     }
 }
 
 impl NodeProcessor for CameraInputNode {
     fn process(&mut self, _input: FrameData) -> Result<FrameData> {
+        // Initialize camera capture if not already done
+        if self.camera_capture.is_none() {
+            self.initialize_camera()?;
+        }
+
+        // Capture frame from camera
+        let video_frame = if let Some(ref mut camera) = self.camera_capture {
+            if !camera.is_running() {
+                camera.start_capture()?;
+            }
+            
+            match camera.capture_frame() {
+                Ok(frame) => {
+                    debug!("Successfully captured frame: {}x{}", frame.width, frame.height);
+                    Some(frame)
+                },
+                Err(e) => {
+                    error!("Failed to capture frame: {}", e);
+                    // Return a fallback frame instead of failing
+                    Some(self.create_fallback_frame())
+                }
+            }
+        } else {
+            error!("Camera capture not initialized");
+            Some(self.create_fallback_frame())
+        };
+
         Ok(FrameData {
-            video_data: Some(VideoFrame {
-                width: 1920,
-                height: 1080,
-                format: VideoFormat::Rgba8,
-                data: vec![0; 1920 * 1080 * 4],
-            }),
-            audio_data: None,
+            video_data: video_frame,
+            audio_data: None, // TODO: Add audio capture support
             tally_data: None,
             scene3d_data: None,
             spatial_audio_data: None,
@@ -92,11 +118,95 @@ impl NodeProcessor for CameraInputNode {
 
     fn set_parameter(&mut self, key: &str, value: Value) -> Result<()> {
         self.config.parameters.insert(key.to_string(), value);
+        // Reset camera capture to apply new parameters
+        self.camera_capture = None;
         Ok(())
     }
 
     fn get_parameter(&self, key: &str) -> Option<Value> {
         self.config.parameters.get(key).cloned()
+    }
+}
+
+impl CameraInputNode {
+    fn initialize_camera(&mut self) -> Result<()> {
+        info!("Initializing camera capture");
+
+        // Get parameters from config
+        let device_index = self.config.parameters
+            .get("device_id")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(0);
+
+        let (width, height) = self.parse_resolution()?;
+        
+        let fps = self.config.parameters
+            .get("fps")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(30) as u32;
+
+        // Create camera capture instance
+        let camera = CameraCapture::new(device_index, width, height, fps)?;
+        
+        info!("Camera capture initialized: device={}, {}x{}@{}", 
+              device_index, width, height, fps);
+
+        self.camera_capture = Some(camera);
+        Ok(())
+    }
+
+    fn parse_resolution(&self) -> Result<(u32, u32)> {
+        let resolution = self.config.parameters
+            .get("resolution")
+            .and_then(|v| v.as_str())
+            .unwrap_or("1920x1080");
+
+        let parts: Vec<&str> = resolution.split('x').collect();
+        if parts.len() != 2 {
+            return Err(anyhow::anyhow!("Invalid resolution format: {}", resolution));
+        }
+
+        let width = parts[0].parse::<u32>()
+            .map_err(|_| anyhow::anyhow!("Invalid width: {}", parts[0]))?;
+        let height = parts[1].parse::<u32>()
+            .map_err(|_| anyhow::anyhow!("Invalid height: {}", parts[1]))?;
+
+        Ok((width, height))
+    }
+
+    fn create_fallback_frame(&self) -> VideoFrame {
+        let (width, height) = self.parse_resolution().unwrap_or((1920, 1080));
+        
+        // Create a simple error pattern (red frame with diagonal lines)
+        let frame_size = (width * height * 4) as usize;
+        let mut data = vec![0u8; frame_size];
+        
+        for y in 0..height {
+            for x in 0..width {
+                let idx = ((y * width + x) * 4) as usize;
+                
+                // Create diagonal stripes pattern for error indication
+                if (x + y) % 32 < 16 {
+                    data[idx] = 255;     // R - red error pattern
+                    data[idx + 1] = 0;   // G
+                    data[idx + 2] = 0;   // B
+                    data[idx + 3] = 255; // A
+                } else {
+                    data[idx] = 128;     // R - darker red
+                    data[idx + 1] = 0;   // G
+                    data[idx + 2] = 0;   // B
+                    data[idx + 3] = 255; // A
+                }
+            }
+        }
+
+        VideoFrame {
+            width,
+            height,
+            format: VideoFormat::Rgba8,
+            data,
+        }
     }
 }
 

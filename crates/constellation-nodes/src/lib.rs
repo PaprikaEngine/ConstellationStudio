@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+pub mod camera;
 pub mod capture;
 pub mod effects;
 pub mod input;
