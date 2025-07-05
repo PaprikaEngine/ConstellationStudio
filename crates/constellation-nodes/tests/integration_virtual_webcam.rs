@@ -1,17 +1,17 @@
 use anyhow::Result;
-use constellation_core::*;
-use constellation_nodes::virtual_camera::{VirtualWebcamBackend, VirtualWebcamConfig, VideoFormat};
 use constellation_core::VideoFormat as CoreVideoFormat;
+use constellation_core::*;
+use constellation_nodes::virtual_camera::{VideoFormat, VirtualWebcamBackend, VirtualWebcamConfig};
 use constellation_nodes::*;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[cfg(target_os = "windows")]
-use constellation_nodes::virtual_camera::WindowsVirtualWebcam as PlatformWebcam;
-#[cfg(target_os = "macos")]
-use constellation_nodes::virtual_camera::MacOSVirtualWebcam as PlatformWebcam;
 #[cfg(target_os = "linux")]
 use constellation_nodes::virtual_camera::LinuxVirtualWebcam as PlatformWebcam;
+#[cfg(target_os = "macos")]
+use constellation_nodes::virtual_camera::MacOSVirtualWebcam as PlatformWebcam;
+#[cfg(target_os = "windows")]
+use constellation_nodes::virtual_camera::WindowsVirtualWebcam as PlatformWebcam;
 
 #[test]
 fn test_virtual_webcam_node_creation() {
@@ -25,7 +25,10 @@ fn test_virtual_webcam_node_creation() {
 
     let node = node.unwrap();
     let properties = node.get_properties();
-    assert_eq!(properties.node_type, NodeType::Output(OutputType::VirtualWebcam));
+    assert_eq!(
+        properties.node_type,
+        NodeType::Output(OutputType::VirtualWebcam)
+    );
     assert!(properties.input_types.contains(&ConnectionType::Video));
     assert!(properties.input_types.contains(&ConnectionType::Audio));
     assert!(properties.output_types.is_empty());
@@ -47,10 +50,9 @@ fn test_virtual_webcam_parameter_handling() -> Result<()> {
         "resolution".to_string(),
         serde_json::Value::String("1280x720".to_string()),
     );
-    config.parameters.insert(
-        "fps".to_string(),
-        serde_json::Value::from(60),
-    );
+    config
+        .parameters
+        .insert("fps".to_string(), serde_json::Value::from(60));
 
     let mut node = VirtualWebcamNode::new(node_id, config)?;
 
@@ -63,29 +65,18 @@ fn test_virtual_webcam_parameter_handling() -> Result<()> {
         node.get_parameter("resolution"),
         Some(serde_json::Value::String("1280x720".to_string()))
     );
-    assert_eq!(
-        node.get_parameter("fps"),
-        Some(serde_json::Value::from(60))
-    );
+    assert_eq!(node.get_parameter("fps"), Some(serde_json::Value::from(60)));
 
     // Test parameter update
     node.set_parameter("fps", serde_json::Value::from(30))?;
-    assert_eq!(
-        node.get_parameter("fps"),
-        Some(serde_json::Value::from(30))
-    );
+    assert_eq!(node.get_parameter("fps"), Some(serde_json::Value::from(30)));
 
     Ok(())
 }
 
 #[test]
 fn test_platform_webcam_backend_creation() {
-    let webcam = PlatformWebcam::new(
-        "Test Camera".to_string(),
-        1280,
-        720,
-        30,
-    );
+    let webcam = PlatformWebcam::new("Test Camera".to_string(), 1280, 720, 30);
 
     assert!(webcam.is_ok());
     let webcam = webcam.unwrap();
@@ -95,12 +86,7 @@ fn test_platform_webcam_backend_creation() {
 
 #[test]
 fn test_platform_webcam_configuration() -> Result<()> {
-    let mut webcam = PlatformWebcam::new(
-        "Test Camera".to_string(),
-        1920,
-        1080,
-        30,
-    )?;
+    let mut webcam = PlatformWebcam::new("Test Camera".to_string(), 1920, 1080, 30)?;
 
     // Test resolution change when not active
     assert!(webcam.set_resolution(1280, 720).is_ok());
@@ -158,7 +144,7 @@ fn test_virtual_webcam_frame_processing() -> Result<()> {
     // Process frame - should not fail even if virtual webcam can't actually start
     // in CI environment without proper drivers
     let result = node.process(frame_data);
-    
+
     // The result may fail due to missing drivers in CI, but should not panic
     match result {
         Ok(_) => {
@@ -166,7 +152,10 @@ fn test_virtual_webcam_frame_processing() -> Result<()> {
         }
         Err(e) => {
             // Expected failure in CI environment without proper drivers
-            println!("Virtual webcam initialization failed (expected in CI): {}", e);
+            println!(
+                "Virtual webcam initialization failed (expected in CI): {}",
+                e
+            );
         }
     }
 
@@ -209,12 +198,7 @@ fn test_resolution_parsing() -> Result<()> {
 fn test_linux_v4l2_frame_conversion() -> Result<()> {
     use constellation_nodes::virtual_camera::LinuxVirtualWebcam;
 
-    let webcam = LinuxVirtualWebcam::new(
-        "Test Camera".to_string(),
-        640,
-        480,
-        30,
-    )?;
+    let webcam = LinuxVirtualWebcam::new("Test Camera".to_string(), 640, 480, 30)?;
 
     let frame = VideoFrame {
         width: 640,
@@ -238,12 +222,7 @@ fn test_linux_v4l2_frame_conversion() -> Result<()> {
 fn test_windows_directshow_creation() -> Result<()> {
     use constellation_nodes::virtual_camera::WindowsVirtualWebcam;
 
-    let webcam = WindowsVirtualWebcam::new(
-        "Test Camera".to_string(),
-        1920,
-        1080,
-        30,
-    )?;
+    let webcam = WindowsVirtualWebcam::new("Test Camera".to_string(), 1920, 1080, 30)?;
 
     assert_eq!(webcam.get_device_name(), "Test Camera");
     assert!(!webcam.is_active());
@@ -256,15 +235,11 @@ fn test_windows_directshow_creation() -> Result<()> {
 fn test_macos_core_media_creation() -> Result<()> {
     use constellation_nodes::virtual_camera::MacOSVirtualWebcam;
 
-    let webcam = MacOSVirtualWebcam::new(
-        "Test Camera".to_string(),
-        1920,
-        1080,
-        30,
-    )?;
+    let webcam = MacOSVirtualWebcam::new("Test Camera".to_string(), 1920, 1080, 30)?;
 
     assert_eq!(webcam.get_device_name(), "Test Camera");
     assert!(!webcam.is_active());
 
     Ok(())
 }
+

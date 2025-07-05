@@ -1,4 +1,4 @@
-use super::{VirtualWebcamBackend, VideoFormat};
+use super::{VideoFormat, VirtualWebcamBackend};
 use anyhow::{anyhow, Result};
 use constellation_core::VideoFrame;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -105,7 +105,7 @@ impl MacOSVirtualWebcam {
     fn create_virtual_device(&mut self) -> Result<()> {
         // This would use Core Media I/O Extensions API
         // For now, we'll create a placeholder implementation
-        
+
         // In a real implementation, this would:
         // 1. Create CMIOExtensionDevice
         // 2. Configure video stream properties
@@ -113,7 +113,7 @@ impl MacOSVirtualWebcam {
         // 4. Start streaming capability
 
         tracing::debug!("Creating Core Media I/O virtual device");
-        
+
         // Placeholder: Generate a unique device identifier
         let device_id = format!("constellation-{}", uuid::Uuid::new_v4());
         self.device_id = Some(device_id);
@@ -128,7 +128,7 @@ impl MacOSVirtualWebcam {
             // 1. Stop streaming
             // 2. Unregister device from system
             // 3. Cleanup resources
-            
+
             tracing::debug!("Destroying Core Media I/O virtual device");
             self.device_id = None;
         }
@@ -141,7 +141,7 @@ impl MacOSVirtualWebcam {
         // This would create a proper sample buffer with the frame data
         // For now, return a placeholder error since sample buffer creation
         // requires extensive Core Media framework integration
-        
+
         Err(anyhow!("Sample buffer creation not yet implemented"))
     }
 
@@ -149,7 +149,7 @@ impl MacOSVirtualWebcam {
     fn send_sample_buffer(&self, _sample_buffer: Vec<u8>) -> Result<()> {
         // This would send the sample buffer to the active virtual device stream
         // In a real implementation, this would use CMIOExtensionDevice methods
-        
+
         Ok(())
     }
 }
@@ -169,7 +169,11 @@ mod core_media_helpers {
     use super::*;
 
     /// Create format description for video stream
-    pub fn create_format_description(_width: u32, _height: u32, _format: VideoFormat) -> Result<String> {
+    pub fn create_format_description(
+        _width: u32,
+        _height: u32,
+        _format: VideoFormat,
+    ) -> Result<String> {
         // This would create appropriate format description for the video format
         Err(anyhow!("Format description creation not yet implemented"))
     }
@@ -191,12 +195,7 @@ mod tests {
 
     #[test]
     fn test_macos_virtual_webcam_creation() {
-        let webcam = MacOSVirtualWebcam::new(
-            "Test Camera".to_string(),
-            1280,
-            720,
-            30,
-        );
+        let webcam = MacOSVirtualWebcam::new("Test Camera".to_string(), 1280, 720, 30);
 
         assert!(webcam.is_ok());
         let webcam = webcam.unwrap();
@@ -206,12 +205,8 @@ mod tests {
 
     #[test]
     fn test_resolution_change() {
-        let mut webcam = MacOSVirtualWebcam::new(
-            "Test Camera".to_string(),
-            1920,
-            1080,
-            30,
-        ).unwrap();
+        let mut webcam =
+            MacOSVirtualWebcam::new("Test Camera".to_string(), 1920, 1080, 30).unwrap();
 
         // Should succeed when not active
         assert!(webcam.set_resolution(1280, 720).is_ok());
@@ -221,15 +216,12 @@ mod tests {
 
     #[test]
     fn test_fps_change() {
-        let mut webcam = MacOSVirtualWebcam::new(
-            "Test Camera".to_string(),
-            1920,
-            1080,
-            30,
-        ).unwrap();
+        let mut webcam =
+            MacOSVirtualWebcam::new("Test Camera".to_string(), 1920, 1080, 30).unwrap();
 
         // Should succeed when not active
         assert!(webcam.set_fps(60).is_ok());
         assert_eq!(webcam.fps, 60);
     }
 }
+

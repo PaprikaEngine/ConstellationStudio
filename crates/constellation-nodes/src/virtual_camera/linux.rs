@@ -1,4 +1,4 @@
-use super::{VirtualWebcamBackend, VideoFormat};
+use super::{VideoFormat, VirtualWebcamBackend};
 use anyhow::{anyhow, Result};
 use constellation_core::VideoFrame;
 use std::fs::{File, OpenOptions};
@@ -41,10 +41,10 @@ impl VirtualWebcamBackend for LinuxVirtualWebcam {
 
         // Find or create V4L2 loopback device
         let device_path = self.find_or_create_loopback_device()?;
-        
+
         // Configure V4L2 device
         self.configure_v4l2_device(&device_path)?;
-        
+
         // Open device for writing
         let device_file = OpenOptions::new()
             .write(true)
@@ -74,7 +74,7 @@ impl VirtualWebcamBackend for LinuxVirtualWebcam {
 
         // Close device file
         self.device_file = None;
-        
+
         // Clean up device configuration if needed
         self.cleanup_v4l2_device()?;
 
@@ -89,7 +89,9 @@ impl VirtualWebcamBackend for LinuxVirtualWebcam {
             return Err(anyhow!("Virtual webcam is not active"));
         }
 
-        let device_file = self.device_file.as_mut()
+        let device_file = self
+            .device_file
+            .as_mut()
             .ok_or_else(|| anyhow!("Device file not opened"))?;
 
         // Convert frame to V4L2 format and write to device
@@ -172,7 +174,8 @@ impl LinuxVirtualWebcam {
     /// Check if a device is a V4L2 loopback device
     fn is_loopback_device(&self, device_path: &str) -> Result<bool> {
         // Extract device number from path
-        let device_num = device_path.trim_start_matches("/dev/video")
+        let device_num = device_path
+            .trim_start_matches("/dev/video")
             .parse::<u32>()
             .map_err(|_| anyhow!("Invalid device path format: {}", device_path))?;
 
@@ -180,8 +183,9 @@ impl LinuxVirtualWebcam {
         let sys_path = format!("/sys/class/video4linux/video{}/name", device_num);
         if let Ok(name) = std::fs::read_to_string(&sys_path) {
             // V4L2 loopback devices typically have "Dummy video device" or custom names
-            Ok(name.contains("Dummy") || name.contains("loopback") || 
-               name.trim() == self.device_name)
+            Ok(name.contains("Dummy")
+                || name.contains("loopback")
+                || name.trim() == self.device_name)
         } else {
             Ok(false)
         }
@@ -193,7 +197,7 @@ impl LinuxVirtualWebcam {
         // - Video format (VIDIOC_S_FMT)
         // - Frame rate (VIDIOC_S_PARM)
         // - Buffer settings
-        
+
         tracing::debug!(
             "Configuring V4L2 device {} for {}x{}@{}fps",
             device_path,
@@ -213,9 +217,13 @@ impl LinuxVirtualWebcam {
         // Set video format
         let format_cmd = Command::new("v4l2-ctl")
             .args(&[
-                "--device", device_path,
+                "--device",
+                device_path,
                 "--set-fmt-video",
-                &format!("width={},height={},pixelformat=YU12", self.width, self.height),
+                &format!(
+                    "width={},height={},pixelformat=YU12",
+                    self.width, self.height
+                ),
             ])
             .output();
 
@@ -236,8 +244,10 @@ impl LinuxVirtualWebcam {
         // Set frame rate
         let fps_cmd = Command::new("v4l2-ctl")
             .args(&[
-                "--device", device_path,
-                "--set-parm", &format!("{}", self.fps),
+                "--device",
+                device_path,
+                "--set-parm",
+                &format!("{}", self.fps),
             ])
             .output();
 
@@ -269,7 +279,7 @@ impl LinuxVirtualWebcam {
     fn convert_frame_for_v4l2(&self, frame: &VideoFrame) -> Result<Vec<u8>> {
         // Convert frame data to YUV420 format for V4L2
         // This is a simplified implementation
-        
+
         let expected_size = (self.width * self.height * 3 / 2) as usize;
         let mut yuv_data = vec![0u8; expected_size];
 
@@ -327,12 +337,7 @@ mod tests {
 
     #[test]
     fn test_linux_virtual_webcam_creation() {
-        let webcam = LinuxVirtualWebcam::new(
-            "Test Camera".to_string(),
-            1280,
-            720,
-            30,
-        );
+        let webcam = LinuxVirtualWebcam::new("Test Camera".to_string(), 1280, 720, 30);
 
         assert!(webcam.is_ok());
         let webcam = webcam.unwrap();
@@ -342,12 +347,8 @@ mod tests {
 
     #[test]
     fn test_resolution_change() {
-        let mut webcam = LinuxVirtualWebcam::new(
-            "Test Camera".to_string(),
-            1920,
-            1080,
-            30,
-        ).unwrap();
+        let mut webcam =
+            LinuxVirtualWebcam::new("Test Camera".to_string(), 1920, 1080, 30).unwrap();
 
         // Should succeed when not active
         assert!(webcam.set_resolution(1280, 720).is_ok());
@@ -357,12 +358,8 @@ mod tests {
 
     #[test]
     fn test_fps_change() {
-        let mut webcam = LinuxVirtualWebcam::new(
-            "Test Camera".to_string(),
-            1920,
-            1080,
-            30,
-        ).unwrap();
+        let mut webcam =
+            LinuxVirtualWebcam::new("Test Camera".to_string(), 1920, 1080, 30).unwrap();
 
         // Should succeed when not active
         assert!(webcam.set_fps(60).is_ok());
@@ -371,12 +368,7 @@ mod tests {
 
     #[test]
     fn test_frame_conversion() {
-        let webcam = LinuxVirtualWebcam::new(
-            "Test Camera".to_string(),
-            640,
-            480,
-            30,
-        ).unwrap();
+        let webcam = LinuxVirtualWebcam::new("Test Camera".to_string(), 640, 480, 30).unwrap();
 
         let frame = VideoFrame {
             width: 640,
@@ -387,9 +379,10 @@ mod tests {
 
         let converted = webcam.convert_frame_for_v4l2(&frame);
         assert!(converted.is_ok());
-        
+
         let yuv_data = converted.unwrap();
         // YUV420 should be 1.5x the pixel count
         assert_eq!(yuv_data.len(), 640 * 480 * 3 / 2);
     }
 }
+

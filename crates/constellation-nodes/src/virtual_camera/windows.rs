@@ -1,4 +1,4 @@
-use super::{VirtualWebcamBackend, VideoFormat};
+use super::{VideoFormat, VirtualWebcamBackend};
 use anyhow::{anyhow, Result};
 use constellation_core::VideoFrame;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,13 +41,13 @@ impl VirtualWebcamBackend for WindowsVirtualWebcam {
 
         // Initialize COM
         self.initialize_com()?;
-        
+
         // Create DirectShow filter graph
         self.create_filter_graph()?;
-        
+
         // Create and register virtual camera source filter
         self.create_source_filter()?;
-        
+
         // Start the filter graph
         self.start_filter_graph()?;
 
@@ -139,12 +139,12 @@ impl WindowsVirtualWebcam {
         // 1. Create IFilterGraph2 instance
         // 2. Get IMediaControl interface
         // 3. Configure graph for capture
-        
+
         tracing::debug!("Creating DirectShow filter graph");
-        
+
         // Placeholder - in real implementation would create COM objects
         self.filter_graph = Some(std::ptr::null_mut());
-        
+
         Ok(())
     }
 
@@ -155,12 +155,12 @@ impl WindowsVirtualWebcam {
         // 2. Implement IBaseFilter interface
         // 3. Configure video format and timing
         // 4. Add filter to graph
-        
+
         tracing::debug!("Creating virtual camera source filter");
-        
+
         // Placeholder - in real implementation would create source filter
         self.source_filter = Some(std::ptr::null_mut());
-        
+
         Ok(())
     }
 
@@ -184,12 +184,12 @@ impl WindowsVirtualWebcam {
         // 1. Remove filters from graph
         // 2. Release COM interface pointers
         // 3. Clear internal state
-        
+
         tracing::debug!("Cleaning up DirectShow filter graph");
-        
+
         self.filter_graph = None;
         self.source_filter = None;
-        
+
         Ok(())
     }
 
@@ -199,9 +199,13 @@ impl WindowsVirtualWebcam {
         // 1. Create IMediaSample from VideoFrame data
         // 2. Set appropriate timestamps
         // 3. Deliver sample through source filter output pin
-        
-        tracing::trace!("Delivering frame to DirectShow ({}x{})", frame.width, frame.height);
-        
+
+        tracing::trace!(
+            "Delivering frame to DirectShow ({}x{})",
+            frame.width,
+            frame.height
+        );
+
         // Placeholder implementation
         Ok(())
     }
@@ -224,7 +228,9 @@ mod directshow_helpers {
     /// Convert VideoFormat to DirectShow media type
     pub fn create_media_type(width: u32, height: u32, format: VideoFormat) -> Result<MediaType> {
         // This would create AM_MEDIA_TYPE structure with appropriate values
-        Err(anyhow!("DirectShow media type creation not yet implemented"))
+        Err(anyhow!(
+            "DirectShow media type creation not yet implemented"
+        ))
     }
 
     /// DirectShow media type wrapper
@@ -247,12 +253,7 @@ mod tests {
 
     #[test]
     fn test_windows_virtual_webcam_creation() {
-        let webcam = WindowsVirtualWebcam::new(
-            "Test Camera".to_string(),
-            1280,
-            720,
-            30,
-        );
+        let webcam = WindowsVirtualWebcam::new("Test Camera".to_string(), 1280, 720, 30);
 
         assert!(webcam.is_ok());
         let webcam = webcam.unwrap();
@@ -262,12 +263,8 @@ mod tests {
 
     #[test]
     fn test_resolution_change() {
-        let mut webcam = WindowsVirtualWebcam::new(
-            "Test Camera".to_string(),
-            1920,
-            1080,
-            30,
-        ).unwrap();
+        let mut webcam =
+            WindowsVirtualWebcam::new("Test Camera".to_string(), 1920, 1080, 30).unwrap();
 
         // Should succeed when not active
         assert!(webcam.set_resolution(1280, 720).is_ok());
@@ -277,15 +274,12 @@ mod tests {
 
     #[test]
     fn test_fps_change() {
-        let mut webcam = WindowsVirtualWebcam::new(
-            "Test Camera".to_string(),
-            1920,
-            1080,
-            30,
-        ).unwrap();
+        let mut webcam =
+            WindowsVirtualWebcam::new("Test Camera".to_string(), 1920, 1080, 30).unwrap();
 
         // Should succeed when not active
         assert!(webcam.set_fps(60).is_ok());
         assert_eq!(webcam.fps, 60);
     }
 }
+

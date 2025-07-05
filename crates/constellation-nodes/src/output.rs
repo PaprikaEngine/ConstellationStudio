@@ -1,17 +1,17 @@
-use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};
 use crate::virtual_camera::VirtualWebcamBackend;
+use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};
 use anyhow::Result;
 use constellation_core::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[cfg(target_os = "windows")]
-use crate::virtual_camera::WindowsVirtualWebcam as PlatformWebcam;
-#[cfg(target_os = "macos")]
-use crate::virtual_camera::MacOSVirtualWebcam as PlatformWebcam;
 #[cfg(target_os = "linux")]
 use crate::virtual_camera::LinuxVirtualWebcam as PlatformWebcam;
+#[cfg(target_os = "macos")]
+use crate::virtual_camera::MacOSVirtualWebcam as PlatformWebcam;
+#[cfg(target_os = "windows")]
+use crate::virtual_camera::WindowsVirtualWebcam as PlatformWebcam;
 
 pub struct VirtualWebcamNode {
     id: Uuid,
