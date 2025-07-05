@@ -3,43 +3,68 @@ name: Gemini PR Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    branches: [ main ]
 
 jobs:
   review:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
 
     env:
       GEMINI_API_URL: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent"
-      # Google Cloud から払い出した API キーを GitHub リポジトリの Secrets に設定しておくにゃ
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
     steps:
       # 1. PR の差分を取得
-      - name: Checkout target branch
+      - name: Checkout PR
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Generate diff file
         run: |
           git fetch origin ${{ github.base_ref }}
           git diff origin/${{ github.base_ref }}...${{ github.sha }} > pr.diff
+          echo "Generated diff file with $(wc -l < pr.diff) lines"
 
       # 2. Gemini にレビューを依頼
       - name: Ask Gemini for review
         id: gemini
         run: |
+          # 差分が空でないかチェック
+          if [ ! -s pr.diff ]; then
+            echo "No changes found in diff"
+            echo "response={\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"このPRには分析可能な変更がありません。\"}]}}]}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          # jq がインストールされているかチェック
+          if ! command -v jq &> /dev/null; then
+            echo "jq not found, installing..."
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
+          
           DIFF_CONTENT=$(cat pr.diff | jq -Rs '.')
           PROMPT=$(jq -cn --arg diff "$DIFF_CONTENT" '{
             contents: [{
               parts: [{
-                text: "あなたは熟練のコードレビュアーです。次の Git diff をレビューし、変更点ごとに指摘・改善提案・ベストプラクティスを日本語で出力してください。\
-\n\n" + $diff
+                text: "あなたは熟練のRustとVulkanの専門家コードレビュアーです。次の Git diff をレビューし、変更点ごとに指摘・改善提案・ベストプラクティスを日本語で出力してください。\n\nフォーカス観点:\n- パフォーマンスとメモリ効率\n- Rustの安全性とベストプラクティス\n- エラーハンドリング\n- Vulkan/Graphics API使用\n- 並行処理パターン\n\n" + $diff
               }]
             }]
           }')
+          
+          # Gemini API呼び出し
           RESPONSE=$(curl -s -X POST "${GEMINI_API_URL}?key=${GEMINI_API_KEY}" \
             -H "Content-Type: application/json" \
             -d "$PROMPT")
-          echo "response=$RESPONSE" >> "$GITHUB_OUTPUT"
+          
+          # APIレスポンスのエラーチェック
+          if echo "$RESPONSE" | jq -e '.error' > /dev/null; then
+            echo "Gemini API error: $(echo "$RESPONSE" | jq -r '.error.message')"
+            echo "response={\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"❌ Gemini APIエラーが発生しました。APIキーを確認してください。\"}]}}]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "response=$RESPONSE" >> "$GITHUB_OUTPUT"
+          fi
 
       # 3. レビューコメントを PR に投稿
       - name: Post comment to PR
@@ -47,6 +72,8 @@ jobs:
         with:
           message: |
             ### :sparkles: Gemini Code Assistant Review
-            ```text
+            
             ${{ fromJSON(steps.gemini.outputs.response).candidates[0].content.parts[0].text }}
-            ```
+            
+            ---
+            *Powered by Gemini 1.5 Pro | Auto-updated on every PR change*
