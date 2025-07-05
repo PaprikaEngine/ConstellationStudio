@@ -1,16 +1,5 @@
-name: CI
-
-on:
-  push:
-    branches: [ main, feature/* ]
-  pull_request:
-    branches: [ main ]
-
-permissions:  # CodeReview.aiに必要な権限を追加
-  pull-requests: write
-
-env:
-  CARGO_TERM_COLOR: always
+# Constellation Studio Project Information
+# This file contains project metadata and specifications
 description: |
   ノードベースのリアルタイム映像処理システム。
   個人配信者から大手放送局まで対応する次世代メディア制作プラットフォーム。
@@ -239,12 +228,6 @@ resources:
   community: "https://discord.gg/constellation-studio"
   support: "support@constellation-studio.com"
 
-# CodeReview.ai
-- name: Code Review
-  uses: CodeReview-ai/codereview-action@v1
-  with:
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    # language: rust # 必要に応じて言語を指定
 
 # 特記事項
 notes:
