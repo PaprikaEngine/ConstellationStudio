@@ -174,7 +174,7 @@ impl LinuxVirtualWebcam {
         // Extract device number from path
         let device_num = device_path.trim_start_matches("/dev/video")
             .parse::<u32>()
-            .unwrap_or(999);
+            .map_err(|_| anyhow!("Invalid device path format: {}", device_path))?;
 
         // Check if device exists and is a loopback device
         let sys_path = format!("/sys/class/video4linux/video{}/name", device_num);
@@ -314,7 +314,9 @@ impl LinuxVirtualWebcam {
 impl Drop for LinuxVirtualWebcam {
     fn drop(&mut self) {
         if self.is_active.load(Ordering::Relaxed) {
-            let _ = self.stop();
+            if let Err(e) = self.stop() {
+                tracing::error!("Failed to stop Linux virtual webcam on drop: {}", e);
+            }
         }
     }
 }
@@ -380,8 +382,7 @@ mod tests {
             width: 640,
             height: 480,
             data: vec![0u8; 640 * 480 * 3], // RGB data
-            format: "RGB24".to_string(),
-            timestamp: 0,
+            format: constellation_core::VideoFormat::Rgb8,
         };
 
         let converted = webcam.convert_frame_for_v4l2(&frame);

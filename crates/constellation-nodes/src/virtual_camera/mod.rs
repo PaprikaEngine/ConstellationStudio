@@ -77,12 +77,23 @@ pub enum VideoFormat {
 }
 
 impl VideoFormat {
+    /// Returns bytes per pixel for packed formats.
+    /// Note: For planar formats (YUV420, NV12), use frame_size() instead.
     pub fn bytes_per_pixel(&self) -> u32 {
         match self {
             VideoFormat::RGB24 => 3,
             VideoFormat::BGRA32 => 4,
-            VideoFormat::YUV420 => 1, // Planar format, effective BPP
-            VideoFormat::NV12 => 1,   // Planar format, effective BPP
+            VideoFormat::YUV420 => 1, // Planar format - misleading, use frame_size()
+            VideoFormat::NV12 => 1,   // Planar format - misleading, use frame_size()
+        }
+    }
+
+    /// Returns the total frame size in bytes for the given dimensions
+    pub fn frame_size(&self, width: u32, height: u32) -> usize {
+        match self {
+            VideoFormat::RGB24 => (width * height * 3) as usize,
+            VideoFormat::BGRA32 => (width * height * 4) as usize,
+            VideoFormat::YUV420 | VideoFormat::NV12 => (width * height * 3 / 2) as usize,
         }
     }
 

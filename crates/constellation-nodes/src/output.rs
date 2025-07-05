@@ -140,7 +140,9 @@ impl NodeProcessor for VirtualWebcamNode {
         self.config.parameters.insert(key.to_string(), value);
         // Stop current webcam when parameters change
         if let Some(ref mut webcam) = self.webcam_backend {
-            let _ = webcam.stop();
+            if let Err(e) = webcam.stop() {
+                tracing::warn!("Failed to stop webcam on parameter change: {}", e);
+            }
         }
         self.webcam_backend = None;
         Ok(())
@@ -154,7 +156,9 @@ impl NodeProcessor for VirtualWebcamNode {
 impl Drop for VirtualWebcamNode {
     fn drop(&mut self) {
         if let Some(ref mut webcam) = self.webcam_backend {
-            let _ = webcam.stop();
+            if let Err(e) = webcam.stop() {
+                tracing::error!("Failed to stop webcam on drop: {}", e);
+            }
         }
     }
 }

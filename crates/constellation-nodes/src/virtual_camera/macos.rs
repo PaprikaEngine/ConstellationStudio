@@ -157,7 +157,9 @@ impl MacOSVirtualWebcam {
 impl Drop for MacOSVirtualWebcam {
     fn drop(&mut self) {
         if self.is_active.load(Ordering::Relaxed) {
-            let _ = self.stop();
+            if let Err(e) = self.stop() {
+                tracing::error!("Failed to stop macOS virtual webcam on drop: {}", e);
+            }
         }
     }
 }
