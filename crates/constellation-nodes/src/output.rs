@@ -1,3 +1,4 @@
+use crate::virtual_camera::VirtualWebcamBackend;
 use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};
 use anyhow::Result;
 use constellation_core::*;
@@ -5,11 +6,18 @@ use serde_json::Value;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+#[cfg(target_os = "linux")]
+use crate::virtual_camera::LinuxVirtualWebcam as PlatformWebcam;
+#[cfg(target_os = "macos")]
+use crate::virtual_camera::MacOSVirtualWebcam as PlatformWebcam;
+#[cfg(target_os = "windows")]
+use crate::virtual_camera::WindowsVirtualWebcam as PlatformWebcam;
+
 pub struct VirtualWebcamNode {
     id: Uuid,
     config: NodeConfig,
     properties: NodeProperties,
-    output_context: Option<VirtualWebcamContext>,
+    webcam_backend: Option<PlatformWebcam>,
 }
 
 impl VirtualWebcamNode {
@@ -66,7 +74,7 @@ impl VirtualWebcamNode {
             id,
             config,
             properties,
-            output_context: None,
+            webcam_backend: None,
         })
     }
 
@@ -86,20 +94,38 @@ impl VirtualWebcamNode {
             .and_then(|v| v.as_i64())
             .unwrap_or(30) as u32;
 
-        self.output_context = Some(VirtualWebcamContext::new(device_name, resolution, fps)?);
+        // Parse resolution string
+        let (width, height) = self.parse_resolution(&resolution)?;
+
+        // Create platform-specific webcam backend
+        let mut webcam = PlatformWebcam::new(device_name, width, height, fps)?;
+        webcam.start()?;
+
+        self.webcam_backend = Some(webcam);
         Ok(())
+    }
+
+    pub fn parse_resolution(&self, resolution: &str) -> Result<(u32, u32)> {
+        let parts: Vec<&str> = resolution.split('x').collect();
+        if parts.len() != 2 {
+            return Err(anyhow::anyhow!("Invalid resolution format: {}", resolution));
+        }
+
+        let width = parts[0].parse::<u32>()?;
+        let height = parts[1].parse::<u32>()?;
+        Ok((width, height))
     }
 }
 
 impl NodeProcessor for VirtualWebcamNode {
     fn process(&mut self, input: FrameData) -> Result<FrameData> {
-        if self.output_context.is_none() {
+        if self.webcam_backend.is_none() {
             self.initialize_output()?;
         }
 
-        if let Some(ref mut context) = self.output_context {
+        if let Some(ref mut webcam) = self.webcam_backend {
             if let Some(ref video_frame) = input.video_data {
-                context.send_frame(video_frame)?;
+                webcam.send_frame(video_frame)?;
             }
         }
 
@@ -112,12 +138,28 @@ impl NodeProcessor for VirtualWebcamNode {
 
     fn set_parameter(&mut self, key: &str, value: Value) -> Result<()> {
         self.config.parameters.insert(key.to_string(), value);
-        self.output_context = None;
+        // Stop current webcam when parameters change
+        if let Some(ref mut webcam) = self.webcam_backend {
+            if let Err(e) = webcam.stop() {
+                tracing::warn!("Failed to stop webcam on parameter change: {}", e);
+            }
+        }
+        self.webcam_backend = None;
         Ok(())
     }
 
     fn get_parameter(&self, key: &str) -> Option<Value> {
         self.config.parameters.get(key).cloned()
+    }
+}
+
+impl Drop for VirtualWebcamNode {
+    fn drop(&mut self) {
+        if let Some(ref mut webcam) = self.webcam_backend {
+            if let Err(e) = webcam.stop() {
+                tracing::error!("Failed to stop webcam on drop: {}", e);
+            }
+        }
     }
 }
 
@@ -583,68 +625,4 @@ impl NodeProcessor for TallyRouterNode {
     }
 }
 
-#[cfg(target_os = "windows")]
-pub struct VirtualWebcamContext {
-    device_name: String,
-    resolution: String,
-    fps: u32,
-}
-
-#[cfg(target_os = "windows")]
-impl VirtualWebcamContext {
-    pub fn new(device_name: String, resolution: String, fps: u32) -> Result<Self> {
-        Ok(Self {
-            device_name,
-            resolution,
-            fps,
-        })
-    }
-
-    pub fn send_frame(&mut self, frame: &VideoFrame) -> Result<()> {
-        Ok(())
-    }
-}
-
-#[cfg(target_os = "macos")]
-pub struct VirtualWebcamContext {
-    device_name: String,
-    resolution: String,
-    fps: u32,
-}
-
-#[cfg(target_os = "macos")]
-impl VirtualWebcamContext {
-    pub fn new(device_name: String, resolution: String, fps: u32) -> Result<Self> {
-        Ok(Self {
-            device_name,
-            resolution,
-            fps,
-        })
-    }
-
-    pub fn send_frame(&mut self, frame: &VideoFrame) -> Result<()> {
-        Ok(())
-    }
-}
-
-#[cfg(target_os = "linux")]
-pub struct VirtualWebcamContext {
-    device_name: String,
-    resolution: String,
-    fps: u32,
-}
-
-#[cfg(target_os = "linux")]
-impl VirtualWebcamContext {
-    pub fn new(device_name: String, resolution: String, fps: u32) -> Result<Self> {
-        Ok(Self {
-            device_name,
-            resolution,
-            fps,
-        })
-    }
-
-    pub fn send_frame(&mut self, frame: &VideoFrame) -> Result<()> {
-        Ok(())
-    }
-}
+// Virtual webcam implementation moved to virtual_camera module
