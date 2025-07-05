@@ -1,287 +1,52 @@
-name: Code Review
+name: Gemini PR Review
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [ main ]
-
-permissions:
-  contents: read
-  pull-requests: write
 
 jobs:
-  code-review:
-    name: Gemini Code Review
+  review:
     runs-on: ubuntu-latest
-    
+
+    env:
+      GEMINI_API_URL: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent"
+      # Google Cloud から払い出した API キーを GitHub リポジトリの Secrets に設定しておくにゃ
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      # 1. PR の差分を取得
+      - name: Checkout target branch
+        uses: actions/checkout@v4
 
-    # 実際のGemini APIを使用したコードレビュー
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Generate diff file
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git diff origin/${{ github.base_ref }}...${{ github.sha }} > pr.diff
 
-    - name: Install Gemini API dependencies
-      run: |
-        pip install google-generativeai requests
+      # 2. Gemini にレビューを依頼
+      - name: Ask Gemini for review
+        id: gemini
+        run: |
+          DIFF_CONTENT=$(cat pr.diff | jq -Rs '.')
+          PROMPT=$(jq -cn --arg diff "$DIFF_CONTENT" '{
+            contents: [{
+              parts: [{
+                text: "あなたは熟練のコードレビュアーです。次の Git diff をレビューし、変更点ごとに指摘・改善提案・ベストプラクティスを日本語で出力してください。\
+\n\n" + $diff
+              }]
+            }]
+          }')
+          RESPONSE=$(curl -s -X POST "${GEMINI_API_URL}?key=${GEMINI_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$PROMPT")
+          echo "response=$RESPONSE" >> "$GITHUB_OUTPUT"
 
-    - name: Gemini Code Review
-      if: github.event_name == 'pull_request'
-      env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        cat > gemini_review.py << 'EOF'
-        import os
-        import google.generativeai as genai
-        import requests
-        import json
-        import sys
-        
-        def get_pr_diff():
-            """PRの差分を取得"""
-            github_token = os.environ.get('GITHUB_TOKEN')
-            repo = os.environ.get('GITHUB_REPOSITORY')
-            pr_number = os.environ.get('GITHUB_EVENT_PATH')
-            
-            if pr_number:
-                with open(pr_number, 'r') as f:
-                    event_data = json.load(f)
-                pr_num = event_data['pull_request']['number']
-                
-                # GitHub APIで差分を取得
-                headers = {
-                    'Authorization': f'token {github_token}',
-                    'Accept': 'application/vnd.github.v3.diff'
-                }
-                
-                diff_url = f'https://api.github.com/repos/{repo}/pulls/{pr_num}'
-                response = requests.get(diff_url, headers=headers)
-                
-                if response.status_code == 200:
-                    return response.text
-            
-            return None
-        
-        def review_with_gemini(diff_content):
-            """Gemini APIでコードレビュー"""
-            api_key = os.environ.get('GEMINI_API_KEY')
-            if not api_key:
-                return "❌ Gemini API key not found. Please set GEMINI_API_KEY secret."
-            
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-pro')
-            
-            prompt = f"""
-            あなたはRustとVulkanの専門家です。以下のPull Requestの差分をレビューして、詳細なフィードバックを提供してください。
-
-            ## レビュー観点:
-            1. **パフォーマンス**: メモリ効率、不要なクローン、計算効率
-            2. **安全性**: unsafe使用、エラーハンドリング、メモリ安全性
-            3. **コード品質**: Rustベストプラクティス、可読性、保守性
-            4. **Vulkan/Graphics**: GPU処理、リソース管理、同期処理
-            5. **アーキテクチャ**: モジュール設計、依存関係、拡張性
-
-            ## PR差分:
-            ```diff
-            {diff_content}
+      # 3. レビューコメントを PR に投稿
+      - name: Post comment to PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            ### :sparkles: Gemini Code Assistant Review
+            ```text
+            ${{ fromJSON(steps.gemini.outputs.response).candidates[0].content.parts[0].text }}
             ```
-
-            ## レビュー形式:
-            - 具体的な問題点とその理由
-            - 改善提案とコード例
-            - 重要度（High/Medium/Low）
-            - Rustイディオムの活用提案
-
-            日本語でレビューしてください。
-            """
-            
-            try:
-                response = model.generate_content(prompt)
-                return response.text
-            except Exception as e:
-                return f"❌ Gemini API error: {str(e)}"
-        
-        def main():
-            diff = get_pr_diff()
-            if not diff:
-                print("No diff found")
-                return
-            
-            # Rustファイルの変更のみを抽出
-            rust_lines = [line for line in diff.split('\n') if '.rs' in line or line.startswith('+++') or line.startswith('---') or line.startswith('@@')]
-            
-            if not any('.rs' in line for line in rust_lines):
-                review_result = "このPRにはRustファイルの変更が含まれていません。"
-            else:
-                rust_diff = '\n'.join(rust_lines[:2000])  # 長すぎる場合は制限
-                review_result = review_with_gemini(rust_diff)
-            
-            # レビュー結果をファイルに保存
-            with open('gemini_review_result.md', 'w', encoding='utf-8') as f:
-                f.write("## 🤖 Gemini Code Review\n\n")
-                f.write(review_result)
-                f.write("\n\n---\n*Powered by Gemini 1.5 Pro*")
-        
-        if __name__ == "__main__":
-            main()
-        EOF
-        
-        python gemini_review.py
-
-    - name: Post Gemini Review
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          try {
-            const review = fs.readFileSync('gemini_review_result.md', 'utf8');
-            
-            // 既存のGeminiレビューコメントを探して削除
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number
-            });
-            
-            const geminiComments = comments.data.filter(comment => 
-              comment.body.includes('🤖 Gemini Code Review')
-            );
-            
-            // 古いコメントを削除
-            for (const comment of geminiComments) {
-              await github.rest.issues.deleteComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: comment.id
-              });
-            }
-            
-            // 新しいレビューコメントを投稿
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: review
-            });
-            
-          } catch (error) {
-            console.log('Error posting Gemini review:', error.message);
-            
-            // エラー時はフォールバック
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '❌ Gemini Code Review failed. Please check the workflow logs.'
-            });
-          }
-
-  code-analysis:
-    name: Additional Code Analysis
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: rustfmt, clippy
-
-    - name: Cache cargo registry
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-analysis-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev
-
-    - name: Run Clippy for PR
-      run: |
-        cargo clippy --workspace --all-targets --all-features --message-format=json -- \
-          -D warnings \
-          -A clippy::too_many_arguments \
-          -A clippy::if_same_then_else \
-          -A clippy::items_after_test_module \
-          -A clippy::map_clone \
-          -A clippy::get_first \
-          -A dead_code \
-          -A unused_variables \
-          -A unexpected_cfgs \
-          > clippy-results.json || true
-
-    - name: Post Clippy Results
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          try {
-            const clippy = fs.readFileSync('clippy-results.json', 'utf8');
-            const lines = clippy.split('\n').filter(line => line.trim());
-            const warnings = lines
-              .map(line => {
-                try { return JSON.parse(line); } catch { return null; }
-              })
-              .filter(item => item && item.reason === 'compiler-message' && item.message.level === 'warning');
-            
-            if (warnings.length > 0) {
-              const summary = warnings
-                .slice(0, 10) // 最初の10件のみ
-                .map(w => `**${w.message.code?.code || 'clippy'}**: ${w.message.message}`)
-                .join('\n');
-              
-              await github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: `## 🦀 Clippy Analysis Results\n\n${summary}\n\n${warnings.length > 10 ? `\n*... and ${warnings.length - 10} more warnings*` : ''}`
-              });
-            }
-          } catch (error) {
-            console.log('Clippy results not found or error parsing:', error.message);
-          }
-
-    - name: Check for unsafe code
-      run: |
-        echo "## 🔒 Unsafe Code Analysis" > unsafe-analysis.md
-        echo "" >> unsafe-analysis.md
-        
-        # Find unsafe blocks
-        unsafe_count=$(find . -name "*.rs" -not -path "./target/*" -exec grep -l "unsafe" {} \; | wc -l)
-        if [ $unsafe_count -gt 0 ]; then
-          echo "Found unsafe code in $unsafe_count files:" >> unsafe-analysis.md
-          find . -name "*.rs" -not -path "./target/*" -exec grep -Hn "unsafe" {} \; | head -20 >> unsafe-analysis.md
-        else
-          echo "✅ No unsafe code found" >> unsafe-analysis.md
-        fi
-
-    - name: Post unsafe analysis
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          try {
-            const analysis = fs.readFileSync('unsafe-analysis.md', 'utf8');
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: analysis
-            });
-          } catch (error) {
-            console.log('Unsafe analysis not found:', error.message);
-          }
