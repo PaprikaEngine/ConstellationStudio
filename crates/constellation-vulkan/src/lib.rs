@@ -87,7 +87,7 @@ impl VulkanContext {
 
         unsafe {
             entry.create_instance(&create_info, None).map_err(|e| {
-                VulkanError::InitializationFailed(format!("Failed to create instance: {:?}", e))
+                VulkanError::InitializationFailed(format!("Failed to create instance: {e:?}"))
             })
         }
         .map_err(Into::into)
@@ -97,8 +97,7 @@ impl VulkanContext {
         let physical_devices = unsafe {
             instance.enumerate_physical_devices().map_err(|e| {
                 VulkanError::InitializationFailed(format!(
-                    "Failed to enumerate physical devices: {:?}",
-                    e
+                    "Failed to enumerate physical devices: {e:?}"
                 ))
             })?
         };
@@ -170,7 +169,7 @@ impl VulkanContext {
             instance
                 .create_device(physical_device, &device_create_info, None)
                 .map_err(|e| {
-                    VulkanError::DeviceCreationFailed(format!("Failed to create device: {:?}", e))
+                    VulkanError::DeviceCreationFailed(format!("Failed to create device: {e:?}"))
                 })?
         };
 
@@ -239,8 +238,7 @@ impl VulkanContext {
                     .create_command_pool(&pool_create_info, None)
                     .map_err(|e| {
                         VulkanError::CommandBufferCreationFailed(format!(
-                            "Failed to create command pool: {:?}",
-                            e
+                            "Failed to create command pool: {e:?}"
                         ))
                     })?
             };
