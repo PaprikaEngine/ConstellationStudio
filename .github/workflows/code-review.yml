@@ -20,85 +20,167 @@ jobs:
       with:
         fetch-depth: 0
 
-    # Gemini Code Assist風のコードレビュー
-    - name: AI Code Review
-      uses: github/super-linter@v5
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        DEFAULT_BRANCH: main
-        VALIDATE_RUST_2021: true
-        VALIDATE_RUST_CLIPPY: true
-        RUST_CLIPPY_CONFIG_FILE: clippy.toml
+    # 実際のGemini APIを使用したコードレビュー
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-    # カスタムAIレビュー（実際のGemini APIを使用）
-    - name: Custom AI Code Review
-      if: github.event_name == 'pull_request'
+    - name: Install Gemini API dependencies
       run: |
-        # PRの差分を取得
-        git diff origin/main...HEAD --name-only --diff-filter=AM | grep '\.rs$' > changed_files.txt || true
-        
-        if [ -s changed_files.txt ]; then
-          echo "## 🤖 AI Code Review Results" > review_comment.md
-          echo "" >> review_comment.md
-          echo "Analyzing changed Rust files..." >> review_comment.md
-          echo "" >> review_comment.md
-          
-          # 変更されたファイルごとに分析
-          while IFS= read -r file; do
-            if [ -f "$file" ]; then
-              echo "### 📁 \`$file\`" >> review_comment.md
-              echo "" >> review_comment.md
-              
-              # ファイルの複雑度チェック
-              lines=$(wc -l < "$file")
-              if [ $lines -gt 500 ]; then
-                echo "⚠️ **Large file**: This file has $lines lines. Consider breaking it into smaller modules." >> review_comment.md
-              fi
-              
-              # unsafe使用チェック
-              unsafe_count=$(grep -c "unsafe" "$file" 2>/dev/null || echo 0)
-              if [ $unsafe_count -gt 0 ]; then
-                echo "🔒 **Unsafe code**: Found $unsafe_count unsafe block(s). Ensure proper documentation and safety review." >> review_comment.md
-              fi
-              
-              # unwrap使用チェック
-              unwrap_count=$(grep -c "\.unwrap()" "$file" 2>/dev/null || echo 0)
-              if [ $unwrap_count -gt 0 ]; then
-                echo "❗ **Error handling**: Found $unwrap_count .unwrap() calls. Consider using proper error handling." >> review_comment.md
-              fi
-              
-              # clone使用チェック
-              clone_count=$(grep -c "\.clone()" "$file" 2>/dev/null || echo 0)
-              if [ $clone_count -gt 5 ]; then
-                echo "🐏 **Performance**: Found $clone_count .clone() calls. Consider using references or Cow types." >> review_comment.md
-              fi
-              
-              echo "" >> review_comment.md
-            fi
-          done < changed_files.txt
-          
-          echo "---" >> review_comment.md
-          echo "*AI analysis completed. Please review the suggestions above.*" >> review_comment.md
-        else
-          echo "No Rust files changed in this PR." > review_comment.md
-        fi
+        pip install google-generativeai requests
 
-    - name: Post AI Review Comment
+    - name: Gemini Code Review
+      if: github.event_name == 'pull_request'
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cat > gemini_review.py << 'EOF'
+        import os
+        import google.generativeai as genai
+        import requests
+        import json
+        import sys
+        
+        def get_pr_diff():
+            """PRの差分を取得"""
+            github_token = os.environ.get('GITHUB_TOKEN')
+            repo = os.environ.get('GITHUB_REPOSITORY')
+            pr_number = os.environ.get('GITHUB_EVENT_PATH')
+            
+            if pr_number:
+                with open(pr_number, 'r') as f:
+                    event_data = json.load(f)
+                pr_num = event_data['pull_request']['number']
+                
+                # GitHub APIで差分を取得
+                headers = {
+                    'Authorization': f'token {github_token}',
+                    'Accept': 'application/vnd.github.v3.diff'
+                }
+                
+                diff_url = f'https://api.github.com/repos/{repo}/pulls/{pr_num}'
+                response = requests.get(diff_url, headers=headers)
+                
+                if response.status_code == 200:
+                    return response.text
+            
+            return None
+        
+        def review_with_gemini(diff_content):
+            """Gemini APIでコードレビュー"""
+            api_key = os.environ.get('GEMINI_API_KEY')
+            if not api_key:
+                return "❌ Gemini API key not found. Please set GEMINI_API_KEY secret."
+            
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-pro')
+            
+            prompt = f"""
+            あなたはRustとVulkanの専門家です。以下のPull Requestの差分をレビューして、詳細なフィードバックを提供してください。
+
+            ## レビュー観点:
+            1. **パフォーマンス**: メモリ効率、不要なクローン、計算効率
+            2. **安全性**: unsafe使用、エラーハンドリング、メモリ安全性
+            3. **コード品質**: Rustベストプラクティス、可読性、保守性
+            4. **Vulkan/Graphics**: GPU処理、リソース管理、同期処理
+            5. **アーキテクチャ**: モジュール設計、依存関係、拡張性
+
+            ## PR差分:
+            ```diff
+            {diff_content}
+            ```
+
+            ## レビュー形式:
+            - 具体的な問題点とその理由
+            - 改善提案とコード例
+            - 重要度（High/Medium/Low）
+            - Rustイディオムの活用提案
+
+            日本語でレビューしてください。
+            """
+            
+            try:
+                response = model.generate_content(prompt)
+                return response.text
+            except Exception as e:
+                return f"❌ Gemini API error: {str(e)}"
+        
+        def main():
+            diff = get_pr_diff()
+            if not diff:
+                print("No diff found")
+                return
+            
+            # Rustファイルの変更のみを抽出
+            rust_lines = [line for line in diff.split('\n') if '.rs' in line or line.startswith('+++') or line.startswith('---') or line.startswith('@@')]
+            
+            if not any('.rs' in line for line in rust_lines):
+                review_result = "このPRにはRustファイルの変更が含まれていません。"
+            else:
+                rust_diff = '\n'.join(rust_lines[:2000])  # 長すぎる場合は制限
+                review_result = review_with_gemini(rust_diff)
+            
+            # レビュー結果をファイルに保存
+            with open('gemini_review_result.md', 'w', encoding='utf-8') as f:
+                f.write("## 🤖 Gemini Code Review\n\n")
+                f.write(review_result)
+                f.write("\n\n---\n*Powered by Gemini 1.5 Pro*")
+        
+        if __name__ == "__main__":
+            main()
+        EOF
+        
+        python gemini_review.py
+
+    - name: Post Gemini Review
       if: github.event_name == 'pull_request'
       uses: actions/github-script@v7
       with:
         script: |
           const fs = require('fs');
           try {
-            const comment = fs.readFileSync('review_comment.md', 'utf8');
+            const review = fs.readFileSync('gemini_review_result.md', 'utf8');
+            
+            // 既存のGeminiレビューコメントを探して削除
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            const geminiComments = comments.data.filter(comment => 
+              comment.body.includes('🤖 Gemini Code Review')
+            );
+            
+            // 古いコメントを削除
+            for (const comment of geminiComments) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id
+              });
+            }
+            
+            // 新しいレビューコメントを投稿
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: comment
+              body: review
             });
+            
           } catch (error) {
-            console.log('Review comment file not found:', error.message);
+            console.log('Error posting Gemini review:', error.message);
+            
+            // エラー時はフォールバック
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ Gemini Code Review failed. Please check the workflow logs.'
+            });
           }
 
   code-analysis:
