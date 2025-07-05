@@ -94,7 +94,7 @@ pub enum VideoFormat {
     Yuv420p,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NodeType {
     Input(InputType),
     Output(OutputType),
@@ -103,7 +103,7 @@ pub enum NodeType {
     Tally(TallyType),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum InputType {
     Camera,
     ScreenCapture,
@@ -112,13 +112,13 @@ pub enum InputType {
     TestPattern,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum OutputType {
     VirtualWebcam,
     Preview,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum EffectType {
     ColorCorrection,
     Blur,
@@ -127,7 +127,7 @@ pub enum EffectType {
     Composite,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AudioType {
     Input,
     Mixer,
@@ -135,7 +135,7 @@ pub enum AudioType {
     Output,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TallyType {
     Generator,
     Monitor,
