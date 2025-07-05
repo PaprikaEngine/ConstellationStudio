@@ -92,7 +92,7 @@ impl VideoFileReader {
             }
         }
 
-        // Check if we've reached the end
+        // Check if we've reached the end and loop if needed
         if let Some(total) = self.total_frames {
             if self.current_frame >= total {
                 if self.loop_playback {

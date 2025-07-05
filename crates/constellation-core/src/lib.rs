@@ -206,7 +206,7 @@ pub enum LightType {
     Area,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VideoFormat {
     Rgba8,
     Rgb8,

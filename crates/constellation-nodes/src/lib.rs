@@ -17,6 +17,9 @@ pub use effects::*;
 pub use input::*;
 pub use output::*;
 
+// Export types needed for tests  
+pub use constellation_core::NodeConfig;
+
 pub trait NodeProcessor: Send {
     fn process(&mut self, input: FrameData) -> Result<FrameData>;
     fn get_properties(&self) -> NodeProperties;

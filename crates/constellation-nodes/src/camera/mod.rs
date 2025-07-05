@@ -182,6 +182,10 @@ impl CameraCapture {
     pub fn is_running(&self) -> bool {
         self.is_running
     }
+
+    pub fn fps(&self) -> f32 {
+        self.fps as f32
+    }
 }
 
 impl Drop for CameraCapture {
