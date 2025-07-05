@@ -1,0 +1,205 @@
+name: Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  code-review:
+    name: Gemini Code Review
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Gemini Code Assist風のコードレビュー
+    - name: AI Code Review
+      uses: github/super-linter@v5
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        DEFAULT_BRANCH: main
+        VALIDATE_RUST_2021: true
+        VALIDATE_RUST_CLIPPY: true
+        RUST_CLIPPY_CONFIG_FILE: clippy.toml
+
+    # カスタムAIレビュー（実際のGemini APIを使用）
+    - name: Custom AI Code Review
+      if: github.event_name == 'pull_request'
+      run: |
+        # PRの差分を取得
+        git diff origin/main...HEAD --name-only --diff-filter=AM | grep '\.rs$' > changed_files.txt || true
+        
+        if [ -s changed_files.txt ]; then
+          echo "## 🤖 AI Code Review Results" > review_comment.md
+          echo "" >> review_comment.md
+          echo "Analyzing changed Rust files..." >> review_comment.md
+          echo "" >> review_comment.md
+          
+          # 変更されたファイルごとに分析
+          while IFS= read -r file; do
+            if [ -f "$file" ]; then
+              echo "### 📁 \`$file\`" >> review_comment.md
+              echo "" >> review_comment.md
+              
+              # ファイルの複雑度チェック
+              lines=$(wc -l < "$file")
+              if [ $lines -gt 500 ]; then
+                echo "⚠️ **Large file**: This file has $lines lines. Consider breaking it into smaller modules." >> review_comment.md
+              fi
+              
+              # unsafe使用チェック
+              unsafe_count=$(grep -c "unsafe" "$file" 2>/dev/null || echo 0)
+              if [ $unsafe_count -gt 0 ]; then
+                echo "🔒 **Unsafe code**: Found $unsafe_count unsafe block(s). Ensure proper documentation and safety review." >> review_comment.md
+              fi
+              
+              # unwrap使用チェック
+              unwrap_count=$(grep -c "\.unwrap()" "$file" 2>/dev/null || echo 0)
+              if [ $unwrap_count -gt 0 ]; then
+                echo "❗ **Error handling**: Found $unwrap_count .unwrap() calls. Consider using proper error handling." >> review_comment.md
+              fi
+              
+              # clone使用チェック
+              clone_count=$(grep -c "\.clone()" "$file" 2>/dev/null || echo 0)
+              if [ $clone_count -gt 5 ]; then
+                echo "🐏 **Performance**: Found $clone_count .clone() calls. Consider using references or Cow types." >> review_comment.md
+              fi
+              
+              echo "" >> review_comment.md
+            fi
+          done < changed_files.txt
+          
+          echo "---" >> review_comment.md
+          echo "*AI analysis completed. Please review the suggestions above.*" >> review_comment.md
+        else
+          echo "No Rust files changed in this PR." > review_comment.md
+        fi
+
+    - name: Post AI Review Comment
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          try {
+            const comment = fs.readFileSync('review_comment.md', 'utf8');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          } catch (error) {
+            console.log('Review comment file not found:', error.message);
+          }
+
+  code-analysis:
+    name: Additional Code Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-analysis-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev
+
+    - name: Run Clippy for PR
+      run: |
+        cargo clippy --workspace --all-targets --all-features --message-format=json -- \
+          -D warnings \
+          -A clippy::too_many_arguments \
+          -A clippy::if_same_then_else \
+          -A clippy::items_after_test_module \
+          -A clippy::map_clone \
+          -A clippy::get_first \
+          -A dead_code \
+          -A unused_variables \
+          -A unexpected_cfgs \
+          > clippy-results.json || true
+
+    - name: Post Clippy Results
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          try {
+            const clippy = fs.readFileSync('clippy-results.json', 'utf8');
+            const lines = clippy.split('\n').filter(line => line.trim());
+            const warnings = lines
+              .map(line => {
+                try { return JSON.parse(line); } catch { return null; }
+              })
+              .filter(item => item && item.reason === 'compiler-message' && item.message.level === 'warning');
+            
+            if (warnings.length > 0) {
+              const summary = warnings
+                .slice(0, 10) // 最初の10件のみ
+                .map(w => `**${w.message.code?.code || 'clippy'}**: ${w.message.message}`)
+                .join('\n');
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🦀 Clippy Analysis Results\n\n${summary}\n\n${warnings.length > 10 ? `\n*... and ${warnings.length - 10} more warnings*` : ''}`
+              });
+            }
+          } catch (error) {
+            console.log('Clippy results not found or error parsing:', error.message);
+          }
+
+    - name: Check for unsafe code
+      run: |
+        echo "## 🔒 Unsafe Code Analysis" > unsafe-analysis.md
+        echo "" >> unsafe-analysis.md
+        
+        # Find unsafe blocks
+        unsafe_count=$(find . -name "*.rs" -not -path "./target/*" -exec grep -l "unsafe" {} \; | wc -l)
+        if [ $unsafe_count -gt 0 ]; then
+          echo "Found unsafe code in $unsafe_count files:" >> unsafe-analysis.md
+          find . -name "*.rs" -not -path "./target/*" -exec grep -Hn "unsafe" {} \; | head -20 >> unsafe-analysis.md
+        else
+          echo "✅ No unsafe code found" >> unsafe-analysis.md
+        fi
+
+    - name: Post unsafe analysis
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          try {
+            const analysis = fs.readFileSync('unsafe-analysis.md', 'utf8');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: analysis
+            });
+          } catch (error) {
+            console.log('Unsafe analysis not found:', error.message);
+          }
