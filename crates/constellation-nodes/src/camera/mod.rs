@@ -5,7 +5,7 @@ use nokhwa::utils::{ApiBackend, CameraIndex, RequestedFormat, RequestedFormatTyp
 use nokhwa::Camera;
 use std::collections::HashMap;
 use tokio::sync::mpsc;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 pub mod platform;
 
@@ -52,7 +52,20 @@ impl CameraCapture {
             .map(|info| CameraDevice {
                 index: match info.index() {
                     CameraIndex::Index(i) => *i,
-                    CameraIndex::String(s) => s.parse().unwrap_or(0),
+                    CameraIndex::String(s) => {
+                        match s.parse() {
+                            Ok(index) => index,
+                            Err(_) => {
+                                warn!("Non-numeric camera index '{}', assigning hash-based index", s);
+                                // Use hash of string to avoid conflicts
+                                use std::collections::hash_map::DefaultHasher;
+                                use std::hash::{Hash, Hasher};
+                                let mut hasher = DefaultHasher::new();
+                                s.hash(&mut hasher);
+                                (hasher.finish() % 1000) as u32 // Keep it reasonable
+                            }
+                        }
+                    },
                 },
                 name: info.human_name(),
                 description: info.description().to_string(),

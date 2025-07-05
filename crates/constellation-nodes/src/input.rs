@@ -86,22 +86,37 @@ impl NodeProcessor for CameraInputNode {
 
         // Capture frame from camera
         let video_frame = if let Some(ref mut camera) = self.camera_capture {
-            match camera.start_capture() {
-                Ok(_) => {
-                    match camera.capture_frame() {
-                        Ok(frame) => {
-                            debug!("Successfully captured frame: {}x{}", frame.width, frame.height);
-                            Some(frame)
-                        },
-                        Err(e) => {
-                            error!("Failed to capture frame: {}", e);
-                            // Return a fallback frame instead of failing
-                            Some(self.create_fallback_frame())
-                        }
+            if !camera.is_running() {
+                match camera.start_capture() {
+                    Ok(_) => {
+                        info!("Camera capture started successfully");
+                    },
+                    Err(e) => {
+                        error!("Failed to start camera capture: {}", e);
+                        return Ok(FrameData {
+                            video_data: Some(self.create_fallback_frame()),
+                            audio_data: Some(AudioFrame {
+                                sample_rate: 48000,
+                                channels: 2,
+                                samples: vec![0.0; 1024],
+                            }),
+                            tally_data: None,
+                            scene3d_data: None,
+                            spatial_audio_data: None,
+                            transform_data: None,
+                        });
                     }
+                }
+            }
+            
+            match camera.capture_frame() {
+                Ok(frame) => {
+                    debug!("Successfully captured frame: {}x{}", frame.width, frame.height);
+                    Some(frame)
                 },
                 Err(e) => {
-                    error!("Failed to start camera capture: {}", e);
+                    error!("Failed to capture frame: {}", e);
+                    // Return a fallback frame instead of failing
                     Some(self.create_fallback_frame())
                 }
             }
@@ -285,23 +300,15 @@ impl NodeProcessor for VideoFileInputNode {
 
         // Read frame from video file
         let (video_frame, audio_frame) = if let Some(ref mut reader) = self.video_reader {
-            match reader.open() {
-                Ok(_) => {
-                    match reader.read_frame() {
-                        Ok((video, audio)) => {
-                            debug!("Successfully read frame from video file: {}x{}", 
-                                   video.width, video.height);
-                            (Some(video), audio)
-                        },
-                        Err(e) => {
-                            error!("Failed to read frame from video file: {}", e);
-                            // Return a fallback frame instead of failing
-                            (Some(self.create_fallback_video_frame()), Some(self.create_fallback_audio_frame()))
-                        }
-                    }
+            match reader.read_frame() {
+                Ok((video, audio)) => {
+                    debug!("Successfully read frame from video file: {}x{}", 
+                           video.width, video.height);
+                    (Some(video), audio)
                 },
                 Err(e) => {
-                    error!("Failed to open video file: {}", e);
+                    error!("Failed to read frame from video file: {}", e);
+                    // Return a fallback frame instead of failing
                     (Some(self.create_fallback_video_frame()), Some(self.create_fallback_audio_frame()))
                 }
             }
@@ -363,8 +370,11 @@ impl VideoFileInputNode {
 
         reader.set_loop_playback(loop_playback);
 
+        // Open the video file immediately during initialization
+        reader.open()?;
+
         self.video_reader = Some(reader);
-        info!("Video file reader initialized successfully");
+        info!("Video file reader initialized and opened successfully");
         Ok(())
     }
 
