@@ -275,7 +275,7 @@ impl AnimationControllerNode {
         self.keyframes.push(keyframe);
         // Sort keyframes by time
         self.keyframes
-            .sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+            .sort_by(|a, b| a.time.total_cmp(&b.time));
     }
 
     fn update_time(&mut self, delta_time: f32) {

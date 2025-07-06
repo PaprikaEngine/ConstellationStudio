@@ -28,7 +28,12 @@ def fix_frame_data_in_file(filepath):
         print(f"Fixed patterns in {filepath}")
 
 # Find and fix all .rs files
-for root, dirs, files in os.walk('/Users/mirabilis/dev/ConstellationStudio/crates/constellation-nodes/src'):
+source_dir = 'crates/constellation-nodes/src'
+if not os.path.exists(source_dir):
+    print(f"Error: Directory '{source_dir}' not found. Please run this script from the project root.")
+    exit(1)
+
+for root, dirs, files in os.walk(source_dir):
     for file in files:
         if file.endswith('.rs'):
             filepath = os.path.join(root, file)
