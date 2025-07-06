@@ -403,8 +403,20 @@ impl NodeProcessor for AnimationControllerNode {
         if let Some(manual_time) = self.get_parameter("time").and_then(|v| v.as_f64()) {
             self.current_time = manual_time as f32;
         } else {
-            // Auto-advance time (assume 60fps for now)
-            self.update_time(1.0 / 60.0);
+            // Auto-advance time based on actual frame timing
+            let now = std::time::Instant::now();
+            static mut LAST_FRAME_TIME: Option<std::time::Instant> = None;
+            let delta_time = unsafe {
+                if let Some(last_time) = LAST_FRAME_TIME {
+                    let delta = now.duration_since(last_time).as_secs_f32();
+                    LAST_FRAME_TIME = Some(now);
+                    delta.min(0.1) // Cap at 100ms to prevent large jumps
+                } else {
+                    LAST_FRAME_TIME = Some(now);
+                    1.0 / 60.0 // Default for first frame
+                }
+            };
+            self.update_time(delta_time);
         }
 
         let control_data = if let Some(value) = self.interpolate_value_at_time(self.current_time) {
