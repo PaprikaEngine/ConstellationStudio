@@ -103,11 +103,9 @@ impl PipelineProcessor {
                 Value::from(c[2]),
                 Value::from(c[3]),
             ]),
-            ParameterValue::Array(arr) => Value::Array(
-                arr.iter()
-                    .map(Self::parameter_value_to_json)
-                    .collect(),
-            ),
+            ParameterValue::Array(arr) => {
+                Value::Array(arr.iter().map(Self::parameter_value_to_json).collect())
+            }
         }
     }
 
