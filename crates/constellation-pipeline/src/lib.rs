@@ -105,7 +105,7 @@ impl PipelineProcessor {
             ]),
             ParameterValue::Array(arr) => Value::Array(
                 arr.iter()
-                    .map(|v| Self::parameter_value_to_json(v))
+                    .map(Self::parameter_value_to_json)
                     .collect(),
             ),
         }

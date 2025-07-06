@@ -90,10 +90,16 @@ impl VideoFileReader {
             let expected_frame = (elapsed.as_secs_f64() * self.fps) as u64;
 
             // Skip frames if we're behind, or wait if we're ahead
-            if expected_frame > self.current_frame {
-                self.current_frame = expected_frame;
-            } else if expected_frame < self.current_frame {
-                // We're ahead, this is normal for real-time playback
+            match expected_frame.cmp(&self.current_frame) {
+                std::cmp::Ordering::Greater => {
+                    self.current_frame = expected_frame;
+                }
+                std::cmp::Ordering::Less => {
+                    // We're ahead, this is normal for real-time playback
+                }
+                std::cmp::Ordering::Equal => {
+                    // Perfect timing, no adjustment needed
+                }
             }
         }
 
@@ -430,7 +436,7 @@ mod tests {
         reader.set_loop_playback(true);
 
         // Seek to near the end
-        reader.seek_to_frame(2999); // Total is 3000 frames
+        let _ = reader.seek_to_frame(2999); // Total is 3000 frames
 
         let frame_result = reader.read_frame(); // Should read last frame
         assert!(frame_result.is_ok());
