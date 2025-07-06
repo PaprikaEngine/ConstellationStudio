@@ -101,6 +101,7 @@ impl NodeProcessor for CameraInputNode {
                                 samples: vec![0.0; 1024],
                             }),
                             control_data: None,
+                            tally_metadata: TallyMetadata::new(),
                         });
                     }
                 }
@@ -130,6 +131,7 @@ impl NodeProcessor for CameraInputNode {
                 samples: vec![0.0; 1024],
             }),
             control_data: None,
+            tally_metadata: TallyMetadata::new(),
         })
     }
 
@@ -319,6 +321,7 @@ impl NodeProcessor for VideoFileInputNode {
                 samples: af.samples,
             }),
             control_data: None,
+            tally_metadata: TallyMetadata::new(),
         })
     }
 
@@ -495,6 +498,7 @@ impl NodeProcessor for TestPatternNode {
             render_data: Some(RenderData::Raster2D(frame_data)),
             audio_data: None,
             control_data: None,
+            tally_metadata: TallyMetadata::new(),
         })
     }
 

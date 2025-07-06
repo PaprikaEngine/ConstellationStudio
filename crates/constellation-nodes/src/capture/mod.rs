@@ -168,13 +168,14 @@ mod tests {
 
             for _ in 0..30 {
                 let dummy_input = FrameData {
-                    video_data: None,
+                    render_data: None,
                     audio_data: None,
-                    tally_data: None,
+                    control_data: None,
+                    tally_metadata: TallyMetadata::new(),
                 };
 
                 if let Ok(output) = node.process(dummy_input) {
-                    if output.video_data.is_some() {
+                    if output.render_data.is_some() {
                         successful_captures += 1;
                     }
                 }

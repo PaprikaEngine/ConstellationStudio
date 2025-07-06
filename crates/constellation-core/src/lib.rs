@@ -61,6 +61,8 @@ pub struct FrameData {
     pub render_data: Option<RenderData>,
     pub audio_data: Option<UnifiedAudioData>,
     pub control_data: Option<ControlData>,
+    // Tally自動伝播用メタデータ
+    pub tally_metadata: TallyMetadata,
 }
 
 #[derive(Debug, Clone)]
@@ -83,6 +85,65 @@ pub struct TallyData {
     pub program_tally: bool,
     pub preview_tally: bool,
     pub custom_tally: HashMap<String, bool>,
+}
+
+// Tally自動伝播システム
+#[derive(Debug, Clone, Default)]
+pub struct TallyMetadata {
+    // 現在のノードのTally状態
+    pub program_tally: bool,
+    pub preview_tally: bool,
+    pub custom_tally: HashMap<String, bool>,
+    
+    // 伝播履歴（無限ループ防止）
+    pub propagation_path: Vec<Uuid>,
+    
+    // 伝播制御フラグ
+    pub should_propagate: bool,
+    pub propagation_source: Option<Uuid>,
+}
+
+impl TallyMetadata {
+    pub fn new() -> Self {
+        Self {
+            program_tally: false,
+            preview_tally: false,
+            custom_tally: HashMap::new(),
+            propagation_path: Vec::new(),
+            should_propagate: true,
+            propagation_source: None,
+        }
+    }
+    
+    pub fn with_program_tally(mut self, enabled: bool) -> Self {
+        self.program_tally = enabled;
+        self
+    }
+    
+    pub fn with_preview_tally(mut self, enabled: bool) -> Self {
+        self.preview_tally = enabled;
+        self
+    }
+    
+    pub fn add_to_path(&mut self, node_id: Uuid) {
+        self.propagation_path.push(node_id);
+    }
+    
+    pub fn has_visited(&self, node_id: Uuid) -> bool {
+        self.propagation_path.contains(&node_id)
+    }
+    
+    pub fn merge_with(&mut self, other: &TallyMetadata) {
+        // OR演算でTally状態をマージ
+        self.program_tally |= other.program_tally;
+        self.preview_tally |= other.preview_tally;
+        
+        // カスタムTallyもマージ
+        for (key, value) in &other.custom_tally {
+            let current = self.custom_tally.get(key).copied().unwrap_or(false);
+            self.custom_tally.insert(key.clone(), current | *value);
+        }
+    }
 }
 
 // 新しい統合データ構造
@@ -542,6 +603,7 @@ mod tests {
             render_data: None,
             audio_data: None,
             control_data: None,
+            tally_metadata: TallyMetadata::new(),
         };
 
         let result = processor.process(input_frame);

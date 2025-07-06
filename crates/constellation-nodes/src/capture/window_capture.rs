@@ -141,6 +141,7 @@ impl NodeProcessor for WindowCaptureNode {
             render_data: Some(RenderData::Raster2D(frame)),
             audio_data: None,
             control_data: None,
+            tally_metadata: TallyMetadata::new(),
         })
     }
 

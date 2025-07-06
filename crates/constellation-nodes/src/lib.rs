@@ -25,6 +25,24 @@ pub trait NodeProcessor: Send {
     fn get_properties(&self) -> NodeProperties;
     fn set_parameter(&mut self, key: &str, value: serde_json::Value) -> Result<()>;
     fn get_parameter(&self, key: &str) -> Option<serde_json::Value>;
+    
+    // Tally自動伝播システム
+    fn process_tally_metadata(&mut self, metadata: &TallyMetadata) -> TallyMetadata {
+        // デフォルト実装: 変更なしで伝播
+        let mut result = metadata.clone();
+        result.add_to_path(self.get_properties().id);
+        result
+    }
+    
+    fn should_propagate_tally(&self, _metadata: &TallyMetadata) -> bool {
+        // デフォルト実装: 常に伝播
+        true
+    }
+    
+    fn generate_tally_state(&self) -> TallyMetadata {
+        // デフォルト実装: Tally状態なし
+        TallyMetadata::new()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

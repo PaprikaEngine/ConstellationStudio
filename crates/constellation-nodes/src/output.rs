@@ -132,6 +132,15 @@ impl NodeProcessor for VirtualWebcamNode {
         Ok(input)
     }
 
+    fn generate_tally_state(&self) -> TallyMetadata {
+        // Virtual Webcamは出力中はProgram Tallyを生成
+        if self.webcam_backend.is_some() {
+            TallyMetadata::new().with_program_tally(true)
+        } else {
+            TallyMetadata::new()
+        }
+    }
+
     fn get_properties(&self) -> NodeProperties {
         self.properties.clone()
     }
@@ -279,6 +288,7 @@ impl NodeProcessor for AudioInputNode {
                 samples: vec![0.0; 1024],
             }),
             control_data: None,
+            tally_metadata: TallyMetadata::new(),
         })
     }
 
@@ -476,7 +486,13 @@ impl NodeProcessor for TallyGeneratorNode {
                 parameter_name: "tally_state".to_string(),
                 value: ParameterValue::Boolean(true),
             }),
+            tally_metadata: TallyMetadata::new().with_program_tally(true),
         })
+    }
+
+    fn generate_tally_state(&self) -> TallyMetadata {
+        // TallyGeneratorは常にProgram Tallyを生成
+        TallyMetadata::new().with_program_tally(true)
     }
 
     fn get_properties(&self) -> NodeProperties {

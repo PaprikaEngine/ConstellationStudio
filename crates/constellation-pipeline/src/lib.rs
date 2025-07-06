@@ -38,7 +38,18 @@ impl PipelineProcessor {
 
         for &node_id in &self.execution_order {
             if let Some(processor) = self.nodes.get_mut(&node_id) {
+                // Tally伝播処理
+                if processor.should_propagate_tally(&current_frame.tally_metadata) {
+                    let processed_tally = processor.process_tally_metadata(&current_frame.tally_metadata);
+                    current_frame.tally_metadata.merge_with(&processed_tally);
+                }
+                
+                // メインフレーム処理
                 current_frame = processor.process(current_frame)?;
+                
+                // ノード固有のTally状態を生成・追加
+                let node_tally = processor.generate_tally_state();
+                current_frame.tally_metadata.merge_with(&node_tally);
             }
         }
 
@@ -75,6 +86,7 @@ mod tests {
             render_data: None,
             audio_data: None,
             control_data: None,
+            tally_metadata: TallyMetadata::new(),
         };
 
         let result = pipeline.process_frame(input_frame);
