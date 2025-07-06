@@ -1,0 +1,5 @@
+# This file has been disabled to remove AI Code Review from CI
+# Original code review workflow has been intentionally removed
+# If AI code review is needed in the future, it can be re-enabled
+
+# Disabled workflow - remove .disabled extension to re-enable
