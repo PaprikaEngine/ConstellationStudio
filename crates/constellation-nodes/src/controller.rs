@@ -274,8 +274,7 @@ impl AnimationControllerNode {
     pub fn add_keyframe(&mut self, keyframe: Keyframe) {
         self.keyframes.push(keyframe);
         // Sort keyframes by time
-        self.keyframes
-            .sort_by(|a, b| a.time.total_cmp(&b.time));
+        self.keyframes.sort_by(|a, b| a.time.total_cmp(&b.time));
     }
 
     fn update_time(&mut self, delta_time: f32) {
