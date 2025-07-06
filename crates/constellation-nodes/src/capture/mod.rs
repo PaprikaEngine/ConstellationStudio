@@ -67,7 +67,7 @@ mod tests {
         assert_eq!(node.get_properties().name, "Screen Capture");
         assert_eq!(
             node.get_properties().output_types,
-            vec![ConnectionType::Video]
+            vec![ConnectionType::RenderData]
         );
     }
 
@@ -85,7 +85,7 @@ mod tests {
         assert_eq!(node.get_properties().name, "Window Capture");
         assert_eq!(
             node.get_properties().output_types,
-            vec![ConnectionType::Video]
+            vec![ConnectionType::RenderData]
         );
     }
 

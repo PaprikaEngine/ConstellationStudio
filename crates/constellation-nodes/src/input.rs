@@ -61,7 +61,7 @@ impl CameraInputNode {
             name: "Camera Input".to_string(),
             node_type: NodeType::Input(InputType::Camera),
             input_types: vec![],
-            output_types: vec![ConnectionType::Video, ConnectionType::Audio],
+            output_types: vec![ConnectionType::RenderData, ConnectionType::Audio],
             parameters,
         };
 
@@ -94,16 +94,13 @@ impl NodeProcessor for CameraInputNode {
                     Err(e) => {
                         error!("Failed to start camera capture: {}", e);
                         return Ok(FrameData {
-                            video_data: Some(self.create_fallback_frame()),
-                            audio_data: Some(AudioFrame {
+                            render_data: Some(RenderData::Raster2D(self.create_fallback_frame())),
+                            audio_data: Some(UnifiedAudioData::Stereo {
                                 sample_rate: 48000,
                                 channels: 2,
                                 samples: vec![0.0; 1024],
                             }),
-                            tally_data: None,
-                            scene3d_data: None,
-                            spatial_audio_data: None,
-                            transform_data: None,
+                            control_data: None,
                         });
                     }
                 }
@@ -126,16 +123,13 @@ impl NodeProcessor for CameraInputNode {
         };
 
         Ok(FrameData {
-            video_data: video_frame,
-            audio_data: Some(AudioFrame {
+            render_data: video_frame.map(RenderData::Raster2D),
+            audio_data: Some(UnifiedAudioData::Stereo {
                 sample_rate: 48000,
                 channels: 2,
                 samples: vec![0.0; 1024],
             }),
-            tally_data: None,
-            scene3d_data: None,
-            spatial_audio_data: None,
-            transform_data: None,
+            control_data: None,
         })
     }
 
@@ -275,7 +269,7 @@ impl VideoFileInputNode {
             name: "Video File Input".to_string(),
             node_type: NodeType::Input(InputType::VideoFile),
             input_types: vec![],
-            output_types: vec![ConnectionType::Video, ConnectionType::Audio],
+            output_types: vec![ConnectionType::RenderData, ConnectionType::Audio],
             parameters,
         };
 
@@ -318,12 +312,13 @@ impl NodeProcessor for VideoFileInputNode {
         };
 
         Ok(FrameData {
-            video_data: video_frame,
-            audio_data: audio_frame,
-            tally_data: None,
-            scene3d_data: None,
-            spatial_audio_data: None,
-            transform_data: None,
+            render_data: video_frame.map(RenderData::Raster2D),
+            audio_data: audio_frame.map(|af| UnifiedAudioData::Stereo {
+                sample_rate: af.sample_rate,
+                channels: af.channels,
+                samples: af.samples,
+            }),
+            control_data: None,
         })
     }
 
@@ -469,7 +464,7 @@ impl TestPatternNode {
             name: "Test Pattern".to_string(),
             node_type: NodeType::Input(InputType::TestPattern),
             input_types: vec![],
-            output_types: vec![ConnectionType::Video],
+            output_types: vec![ConnectionType::RenderData],
             parameters,
         };
 
@@ -497,12 +492,9 @@ impl NodeProcessor for TestPatternNode {
         };
 
         Ok(FrameData {
-            video_data: Some(frame_data),
+            render_data: Some(RenderData::Raster2D(frame_data)),
             audio_data: None,
-            tally_data: None,
-            scene3d_data: None,
-            spatial_audio_data: None,
-            transform_data: None,
+            control_data: None,
         })
     }
 

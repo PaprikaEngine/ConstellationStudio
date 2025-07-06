@@ -63,8 +63,8 @@ impl ColorCorrectionNode {
             id,
             name: "Color Correction".to_string(),
             node_type: NodeType::Effect(EffectType::ColorCorrection),
-            input_types: vec![ConnectionType::Video],
-            output_types: vec![ConnectionType::Video],
+            input_types: vec![ConnectionType::RenderData],
+            output_types: vec![ConnectionType::RenderData],
             parameters,
         };
 
@@ -80,7 +80,7 @@ impl NodeProcessor for ColorCorrectionNode {
     fn process(&mut self, input: FrameData) -> Result<FrameData> {
         let mut output = input;
 
-        if let Some(ref mut video_frame) = output.video_data {
+        if let Some(RenderData::Raster2D(ref mut video_frame)) = output.render_data {
             let brightness = self
                 .get_parameter("brightness")
                 .and_then(|v| v.as_f64())
@@ -209,8 +209,8 @@ impl BlurNode {
             id,
             name: "Blur".to_string(),
             node_type: NodeType::Effect(EffectType::Blur),
-            input_types: vec![ConnectionType::Video],
-            output_types: vec![ConnectionType::Video],
+            input_types: vec![ConnectionType::RenderData],
+            output_types: vec![ConnectionType::RenderData],
             parameters,
         };
 
@@ -224,7 +224,7 @@ impl BlurNode {
 
 impl NodeProcessor for BlurNode {
     fn process(&mut self, mut input: FrameData) -> Result<FrameData> {
-        if let Some(ref mut video_data) = input.video_data {
+        if let Some(RenderData::Raster2D(ref mut video_data)) = input.render_data {
             let radius = self.config.parameters
                 .get("radius")
                 .and_then(|v| v.as_f64())
@@ -351,8 +351,8 @@ impl SharpenNode {
             id,
             name: "Sharpen".to_string(),
             node_type: NodeType::Effect(EffectType::Sharpen),
-            input_types: vec![ConnectionType::Video],
-            output_types: vec![ConnectionType::Video],
+            input_types: vec![ConnectionType::RenderData],
+            output_types: vec![ConnectionType::RenderData],
             parameters,
         };
 
@@ -366,7 +366,7 @@ impl SharpenNode {
 
 impl NodeProcessor for SharpenNode {
     fn process(&mut self, mut input: FrameData) -> Result<FrameData> {
-        if let Some(ref mut video_data) = input.video_data {
+        if let Some(RenderData::Raster2D(ref mut video_data)) = input.render_data {
             let strength = self.config.parameters
                 .get("strength")
                 .and_then(|v| v.as_f64())
@@ -491,8 +491,8 @@ impl TransformNode {
             id,
             name: "Transform".to_string(),
             node_type: NodeType::Effect(EffectType::Transform),
-            input_types: vec![ConnectionType::Video],
-            output_types: vec![ConnectionType::Video],
+            input_types: vec![ConnectionType::RenderData],
+            output_types: vec![ConnectionType::RenderData],
             parameters,
         };
 
@@ -566,8 +566,8 @@ impl CompositeNode {
             id,
             name: "Composite".to_string(),
             node_type: NodeType::Effect(EffectType::Composite),
-            input_types: vec![ConnectionType::Video, ConnectionType::Video],
-            output_types: vec![ConnectionType::Video],
+            input_types: vec![ConnectionType::RenderData, ConnectionType::RenderData],
+            output_types: vec![ConnectionType::RenderData],
             parameters,
         };
 

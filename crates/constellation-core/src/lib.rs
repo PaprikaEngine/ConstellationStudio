@@ -58,13 +58,9 @@ impl ConstellationEngine {
 
 #[derive(Debug, Clone)]
 pub struct FrameData {
-    pub video_data: Option<VideoFrame>,
-    pub audio_data: Option<AudioFrame>,
-    pub tally_data: Option<TallyData>,
-    // Phase 4: 3D/VR/XR対応拡張
-    pub scene3d_data: Option<Scene3DData>,
-    pub spatial_audio_data: Option<SpatialAudioData>,
-    pub transform_data: Option<TransformData>,
+    pub render_data: Option<RenderData>,
+    pub audio_data: Option<UnifiedAudioData>,
+    pub control_data: Option<ControlData>,
 }
 
 #[derive(Debug, Clone)]
@@ -89,7 +85,119 @@ pub struct TallyData {
     pub custom_tally: HashMap<String, bool>,
 }
 
-// Phase 4: 3D/VR/XR対応データ構造
+// 新しい統合データ構造
+
+#[derive(Debug, Clone)]
+pub enum RenderData {
+    // 2D最終画像
+    Raster2D(VideoFrame),
+    
+    // 3Dシーン（Phase 4）
+    Scene3D(Scene3DData),
+    
+    // 中間表現（Vulkan中間状態）
+    Intermediate {
+        gpu_buffers: Vec<u32>, // VulkanBufferのID参照（簡素化）
+        render_state: String,  // レンダリング状態（簡素化）
+        transform_matrix: [f32; 16],
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum UnifiedAudioData {
+    Stereo {
+        sample_rate: u32,
+        channels: u16,
+        samples: Vec<f32>,
+    },
+    Spatial {
+        sources: Vec<SpatialAudioSource>,
+        listener: AudioListener,
+        room_response: Option<Vec<f32>>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct AudioListener {
+    pub position: Vector3,
+    pub orientation: Vector3,
+    pub up: Vector3,
+}
+
+#[derive(Debug, Clone)]
+pub enum ControlData {
+    // 単一パラメータ制御
+    Parameter {
+        target_node_id: Uuid,
+        parameter_name: String,
+        value: ParameterValue,
+    },
+    
+    // 複数制御（MIDIコントローラ等）
+    MultiControl {
+        commands: Vec<ControlCommand>,
+    },
+    
+    // 3D変換制御
+    Transform {
+        position: Option<Vector3>,
+        rotation: Option<Quaternion>,
+        scale: Option<Vector3>,
+    },
+    
+    // カメラ制御
+    Camera {
+        position: Option<Vector3>,
+        target: Option<Vector3>,
+        fov: Option<f32>,
+        near: Option<f32>,
+        far: Option<f32>,
+    },
+    
+    // アニメーション制御
+    Animation {
+        keyframes: Vec<Keyframe>,
+        time: f32,
+        interpolation: InterpolationType,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct ControlCommand {
+    pub target_node_id: Uuid,
+    pub parameter_name: String,
+    pub value: ParameterValue,
+    pub timestamp: std::time::Instant,
+}
+
+#[derive(Debug, Clone)]
+pub enum ParameterValue {
+    Float(f32),
+    Integer(i32),
+    Boolean(bool),
+    String(String),
+    Vector3(Vector3),
+    Color([f32; 4]),
+    Array(Vec<ParameterValue>),
+}
+
+#[derive(Debug, Clone)]
+pub struct Keyframe {
+    pub time: f32,
+    pub value: ParameterValue,
+    pub interpolation: InterpolationType,
+}
+
+#[derive(Debug, Clone)]
+pub enum InterpolationType {
+    Linear,
+    EaseIn,
+    EaseOut,
+    EaseInOut,
+    Bezier(f32, f32, f32, f32),
+}
+
+// Phase 4: 3D/VR/XR対応データ構造（既存維持）
 
 #[derive(Debug, Clone)]
 pub struct Scene3DData {
@@ -266,13 +374,9 @@ pub enum TallyType {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ConnectionType {
-    Video,
-    Audio,
-    Tally,
-    // Phase 4: 3D/VR/XR対応拡張
-    Scene3D,       // 3D Scene線: 3Dシーングラフデータ伝送
-    SpatialAudio,  // Spatial Audio線: 3D位置情報付き音声伝送
-    Transform,     // Transform線: 3D変換・カメラパラメータ伝送
+    RenderData,   // 映像・3Dデータ（メイン処理線）
+    Audio,        // 音声データ（ステレオ・3D音響統合）
+    Control,      // 制御信号線（パラメータ・変換制御）
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -435,12 +539,9 @@ mod tests {
         let mut processor = FrameProcessor::new(node_id, ProcessorType::PassThrough);
 
         let input_frame = FrameData {
-            video_data: None,
+            render_data: None,
             audio_data: None,
-            tally_data: None,
-            scene3d_data: None,
-            spatial_audio_data: None,
-            transform_data: None,
+            control_data: None,
         };
 
         let result = processor.process(input_frame);

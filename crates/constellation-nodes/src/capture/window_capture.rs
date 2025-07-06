@@ -78,7 +78,7 @@ impl WindowCaptureNode {
             name: "Window Capture".to_string(),
             node_type: NodeType::Input(InputType::WindowCapture),
             input_types: vec![],
-            output_types: vec![ConnectionType::Video],
+            output_types: vec![ConnectionType::RenderData],
             parameters: parameters.clone(),
         };
 
@@ -138,12 +138,9 @@ impl NodeProcessor for WindowCaptureNode {
         };
 
         Ok(FrameData {
-            video_data: Some(frame),
+            render_data: Some(RenderData::Raster2D(frame)),
             audio_data: None,
-            tally_data: None,
-            scene3d_data: None,
-            spatial_audio_data: None,
-            transform_data: None,
+            control_data: None,
         })
     }
 

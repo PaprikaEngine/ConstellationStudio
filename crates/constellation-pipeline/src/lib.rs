@@ -72,12 +72,9 @@ mod tests {
         pipeline.add_node(node_id, processor);
 
         let input_frame = FrameData {
-            video_data: None,
+            render_data: None,
             audio_data: None,
-            tally_data: None,
-            scene3d_data: None,
-            spatial_audio_data: None,
-            transform_data: None,
+            control_data: None,
         };
 
         let result = pipeline.process_frame(input_frame);
