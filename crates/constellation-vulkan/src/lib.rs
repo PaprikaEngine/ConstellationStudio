@@ -413,7 +413,7 @@ mod tests {
         let result = VulkanContext::new();
         match result {
             Ok(_) => println!("Vulkan context created successfully"),
-            Err(e) => println!("Failed to create Vulkan context: {}", e),
+            Err(e) => println!("Failed to create Vulkan context: {e}"),
         }
     }
 
