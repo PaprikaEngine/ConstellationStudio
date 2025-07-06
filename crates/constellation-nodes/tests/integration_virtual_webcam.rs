@@ -29,7 +29,7 @@ fn test_virtual_webcam_node_creation() {
         properties.node_type,
         NodeType::Output(OutputType::VirtualWebcam)
     );
-    assert!(properties.input_types.contains(&ConnectionType::Video));
+    assert!(properties.input_types.contains(&ConnectionType::RenderData));
     assert!(properties.input_types.contains(&ConnectionType::Audio));
     assert!(properties.output_types.is_empty());
 }
@@ -136,12 +136,10 @@ fn test_virtual_webcam_frame_processing() -> Result<()> {
     };
 
     let frame_data = FrameData {
-        video_data: Some(video_frame),
+        render_data: Some(RenderData::Raster2D(video_frame)),
         audio_data: None,
-        tally_data: None,
-        scene3d_data: None,
-        spatial_audio_data: None,
-        transform_data: None,
+        control_data: None,
+        tally_metadata: TallyMetadata::new(),
     };
 
     // Process frame - should not fail even if virtual webcam can't actually start

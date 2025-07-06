@@ -43,18 +43,18 @@ impl PlatformCamera for WindowsCamera {
         // For now, generate a test pattern
         let frame_size = (self.width * self.height * 4) as usize;
         let mut data = vec![0u8; frame_size];
-        
+
         // Create a checkerboard test pattern
         for y in 0..self.height {
             for x in 0..self.width {
                 let idx = ((y * self.width + x) * 4) as usize;
                 let checker = ((x / 32) + (y / 32)) % 2;
                 let color = if checker == 0 { 255 } else { 128 };
-                
-                data[idx] = color;     // R
+
+                data[idx] = color; // R
                 data[idx + 1] = color; // G
                 data[idx + 2] = color; // B
-                data[idx + 3] = 255;   // A
+                data[idx + 3] = 255; // A
             }
         }
 
@@ -116,7 +116,7 @@ mod tests {
     fn test_windows_camera_creation() {
         let camera = WindowsCamera::new(0, 1920, 1080, 30);
         assert!(camera.is_ok());
-        
+
         let camera = camera.unwrap();
         assert_eq!(camera.width, 1920);
         assert_eq!(camera.height, 1080);
@@ -127,21 +127,21 @@ mod tests {
     #[test]
     fn test_windows_camera_lifecycle() {
         let mut camera = WindowsCamera::new(0, 1280, 720, 60).unwrap();
-        
+
         assert!(!camera.is_active());
-        
+
         let start_result = camera.start();
         assert!(start_result.is_ok());
         assert!(camera.is_active());
-        
+
         let frame_result = camera.capture_frame();
         assert!(frame_result.is_ok());
-        
+
         let frame = frame_result.unwrap();
         assert_eq!(frame.width, 1280);
         assert_eq!(frame.height, 720);
         assert_eq!(frame.data.len(), 1280 * 720 * 4);
-        
+
         let stop_result = camera.stop();
         assert!(stop_result.is_ok());
         assert!(!camera.is_active());
@@ -151,10 +151,10 @@ mod tests {
     fn test_windows_list_devices() {
         let devices = WindowsCamera::list_devices().unwrap();
         assert_eq!(devices.len(), 2);
-        
+
         assert_eq!(devices[0].index, 0);
         assert_eq!(devices[0].name, "Integrated Camera");
-        
+
         assert_eq!(devices[1].index, 1);
         assert_eq!(devices[1].name, "USB Camera");
     }

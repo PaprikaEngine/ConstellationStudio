@@ -65,7 +65,7 @@ impl VirtualWebcamNode {
             id,
             name: "Virtual Webcam".to_string(),
             node_type: NodeType::Output(OutputType::VirtualWebcam),
-            input_types: vec![ConnectionType::Video, ConnectionType::Audio],
+            input_types: vec![ConnectionType::RenderData, ConnectionType::Audio],
             output_types: vec![],
             parameters,
         };
@@ -124,12 +124,21 @@ impl NodeProcessor for VirtualWebcamNode {
         }
 
         if let Some(ref mut webcam) = self.webcam_backend {
-            if let Some(ref video_frame) = input.video_data {
+            if let Some(RenderData::Raster2D(ref video_frame)) = input.render_data {
                 webcam.send_frame(video_frame)?;
             }
         }
 
         Ok(input)
+    }
+
+    fn generate_tally_state(&self) -> TallyMetadata {
+        // Virtual Webcamは出力中はProgram Tallyを生成
+        if self.webcam_backend.is_some() {
+            TallyMetadata::new().with_program_tally(true)
+        } else {
+            TallyMetadata::new()
+        }
     }
 
     fn get_properties(&self) -> NodeProperties {
@@ -199,7 +208,7 @@ impl PreviewNode {
             id,
             name: "Preview".to_string(),
             node_type: NodeType::Output(OutputType::Preview),
-            input_types: vec![ConnectionType::Video, ConnectionType::Audio],
+            input_types: vec![ConnectionType::RenderData, ConnectionType::Audio],
             output_types: vec![],
             parameters,
         };
@@ -272,16 +281,14 @@ impl AudioInputNode {
 impl NodeProcessor for AudioInputNode {
     fn process(&mut self, _input: FrameData) -> Result<FrameData> {
         Ok(FrameData {
-            video_data: None,
-            audio_data: Some(AudioFrame {
+            render_data: None,
+            audio_data: Some(UnifiedAudioData::Stereo {
                 sample_rate: 48000,
                 channels: 2,
                 samples: vec![0.0; 1024],
             }),
-            tally_data: None,
-            scene3d_data: None,
-            spatial_audio_data: None,
-            transform_data: None,
+            control_data: None,
+            tally_metadata: TallyMetadata::new(),
         })
     }
 
@@ -457,7 +464,7 @@ impl TallyGeneratorNode {
             name: "Tally Generator".to_string(),
             node_type: NodeType::Tally(TallyType::Generator),
             input_types: vec![],
-            output_types: vec![ConnectionType::Tally],
+            output_types: vec![ConnectionType::Control],
             parameters: HashMap::new(),
         };
 
@@ -472,17 +479,20 @@ impl TallyGeneratorNode {
 impl NodeProcessor for TallyGeneratorNode {
     fn process(&mut self, _input: FrameData) -> Result<FrameData> {
         Ok(FrameData {
-            video_data: None,
+            render_data: None,
             audio_data: None,
-            tally_data: Some(TallyData {
-                program_tally: false,
-                preview_tally: false,
-                custom_tally: HashMap::new(),
+            control_data: Some(ControlData::Parameter {
+                target_node_id: self.id,
+                parameter_name: "tally_state".to_string(),
+                value: ParameterValue::Boolean(true),
             }),
-            scene3d_data: None,
-            spatial_audio_data: None,
-            transform_data: None,
+            tally_metadata: TallyMetadata::new().with_program_tally(true),
         })
+    }
+
+    fn generate_tally_state(&self) -> TallyMetadata {
+        // TallyGeneratorは常にProgram Tallyを生成
+        TallyMetadata::new().with_program_tally(true)
     }
 
     fn get_properties(&self) -> NodeProperties {
@@ -511,8 +521,8 @@ impl TallyMonitorNode {
             id,
             name: "Tally Monitor".to_string(),
             node_type: NodeType::Tally(TallyType::Monitor),
-            input_types: vec![ConnectionType::Tally],
-            output_types: vec![ConnectionType::Tally],
+            input_types: vec![ConnectionType::Control],
+            output_types: vec![ConnectionType::Control],
             parameters: HashMap::new(),
         };
 
@@ -555,8 +565,8 @@ impl TallyLogicNode {
             id,
             name: "Tally Logic".to_string(),
             node_type: NodeType::Tally(TallyType::Logic),
-            input_types: vec![ConnectionType::Tally],
-            output_types: vec![ConnectionType::Tally],
+            input_types: vec![ConnectionType::Control],
+            output_types: vec![ConnectionType::Control],
             parameters: HashMap::new(),
         };
 
@@ -599,8 +609,8 @@ impl TallyRouterNode {
             id,
             name: "Tally Router".to_string(),
             node_type: NodeType::Tally(TallyType::Router),
-            input_types: vec![ConnectionType::Tally],
-            output_types: vec![ConnectionType::Tally],
+            input_types: vec![ConnectionType::Control],
+            output_types: vec![ConnectionType::Control],
             parameters: HashMap::new(),
         };
 

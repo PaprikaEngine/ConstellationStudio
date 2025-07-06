@@ -2,19 +2,19 @@ use anyhow::Result;
 use constellation_core::VideoFrame;
 use std::collections::HashMap;
 
-#[cfg(target_os = "windows")]
-pub mod windows;
-#[cfg(target_os = "macos")]
-pub mod macos;
 #[cfg(target_os = "linux")]
 pub mod linux;
+#[cfg(target_os = "macos")]
+pub mod macos;
+#[cfg(target_os = "windows")]
+pub mod windows;
 
 /// Platform-specific camera interface
 pub trait PlatformCamera: Send + Sync {
     fn new(device_index: u32, width: u32, height: u32, fps: u32) -> Result<Self>
     where
         Self: Sized;
-    
+
     fn start(&mut self) -> Result<()>;
     fn stop(&mut self) -> Result<()>;
     fn capture_frame(&mut self) -> Result<VideoFrame>;
@@ -49,7 +49,7 @@ mod tests {
     #[test]
     fn test_platform_camera_creation() {
         let result = PlatformCameraImpl::new(0, 640, 480, 30);
-        
+
         // This test may fail in CI environments without cameras
         match result {
             Ok(_) => println!("Platform camera created successfully"),
@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn test_list_platform_devices() {
         let result = PlatformCameraImpl::list_devices();
-        
+
         match result {
             Ok(devices) => {
                 println!("Found {} platform camera devices", devices.len());
@@ -69,7 +69,10 @@ mod tests {
                 }
             }
             Err(e) => {
-                println!("Failed to list platform camera devices (expected in CI): {}", e);
+                println!(
+                    "Failed to list platform camera devices (expected in CI): {}",
+                    e
+                );
             }
         }
     }

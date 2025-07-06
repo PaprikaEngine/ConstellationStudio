@@ -43,7 +43,7 @@ impl PlatformCamera for LinuxCamera {
         // For now, generate a test pattern
         let frame_size = (self.width * self.height * 4) as usize;
         let mut data = vec![0u8; frame_size];
-        
+
         // Create a color bars test pattern
         let bar_width = self.width / 8;
         let colors = [
@@ -62,11 +62,11 @@ impl PlatformCamera for LinuxCamera {
                 let idx = ((y * self.width + x) * 4) as usize;
                 let bar_index = (x / bar_width).min(7) as usize;
                 let color = colors[bar_index];
-                
-                data[idx] = color[0];     // R
+
+                data[idx] = color[0]; // R
                 data[idx + 1] = color[1]; // G
                 data[idx + 2] = color[2]; // B
-                data[idx + 3] = 255;      // A
+                data[idx + 3] = 255; // A
             }
         }
 
@@ -128,7 +128,7 @@ mod tests {
     fn test_linux_camera_creation() {
         let camera = LinuxCamera::new(0, 800, 600, 25);
         assert!(camera.is_ok());
-        
+
         let camera = camera.unwrap();
         assert_eq!(camera.width, 800);
         assert_eq!(camera.height, 600);
@@ -139,21 +139,21 @@ mod tests {
     #[test]
     fn test_linux_camera_lifecycle() {
         let mut camera = LinuxCamera::new(0, 1024, 768, 30).unwrap();
-        
+
         assert!(!camera.is_active());
-        
+
         let start_result = camera.start();
         assert!(start_result.is_ok());
         assert!(camera.is_active());
-        
+
         let frame_result = camera.capture_frame();
         assert!(frame_result.is_ok());
-        
+
         let frame = frame_result.unwrap();
         assert_eq!(frame.width, 1024);
         assert_eq!(frame.height, 768);
         assert_eq!(frame.data.len(), 1024 * 768 * 4);
-        
+
         let stop_result = camera.stop();
         assert!(stop_result.is_ok());
         assert!(!camera.is_active());
@@ -163,10 +163,10 @@ mod tests {
     fn test_linux_list_devices() {
         let devices = LinuxCamera::list_devices().unwrap();
         assert_eq!(devices.len(), 2);
-        
+
         assert_eq!(devices[0].index, 0);
         assert_eq!(devices[0].name, "/dev/video0");
-        
+
         assert_eq!(devices[1].index, 1);
         assert_eq!(devices[1].name, "/dev/video1");
     }
