@@ -126,7 +126,11 @@ impl NodeProcessor for ColorCorrectionNode {
 impl ColorCorrectionNode {
     fn process_control_data(&mut self, control_data: &ControlData) -> Result<()> {
         match control_data {
-            ControlData::Parameter { target_node_id, parameter_name, value } => {
+            ControlData::Parameter {
+                target_node_id,
+                parameter_name,
+                value,
+            } => {
                 if *target_node_id == self.id {
                     let json_value = match value {
                         ParameterValue::Float(f) => Value::from(*f),
@@ -143,7 +147,7 @@ impl ColorCorrectionNode {
                     };
                     self.set_parameter(parameter_name, json_value)?;
                 }
-            },
+            }
             ControlData::MultiControl { commands } => {
                 for command in commands {
                     if command.target_node_id == self.id {
@@ -163,8 +167,8 @@ impl ColorCorrectionNode {
                         self.set_parameter(&command.parameter_name, json_value)?;
                     }
                 }
-            },
-            _ => {}, // Ignore other control types for now
+            }
+            _ => {} // Ignore other control types for now
         }
         Ok(())
     }
@@ -275,7 +279,9 @@ impl BlurNode {
 impl NodeProcessor for BlurNode {
     fn process(&mut self, mut input: FrameData) -> Result<FrameData> {
         if let Some(RenderData::Raster2D(ref mut video_data)) = input.render_data {
-            let radius = self.config.parameters
+            let radius = self
+                .config
+                .parameters
                 .get("radius")
                 .and_then(|v| v.as_f64())
                 .unwrap_or(1.0) as f32;
@@ -309,11 +315,11 @@ impl BlurNode {
         let width = frame.width as usize;
         let height = frame.height as usize;
         let channels = 4; // RGBA
-        
+
         // Simple box blur implementation
         let blur_radius = (radius.round() as usize).max(1);
         let mut temp_data = frame.data.clone();
-        
+
         // Horizontal pass
         for y in 0..height {
             for x in 0..width {
@@ -321,7 +327,7 @@ impl BlurNode {
                 let mut g_sum = 0.0f32;
                 let mut b_sum = 0.0f32;
                 let mut count = 0;
-                
+
                 for dx in 0..=(blur_radius * 2) {
                     let sample_x = x as i32 + dx as i32 - blur_radius as i32;
                     if sample_x >= 0 && sample_x < width as i32 {
@@ -332,7 +338,7 @@ impl BlurNode {
                         count += 1;
                     }
                 }
-                
+
                 if count > 0 {
                     let idx = (y * width + x) * channels;
                     temp_data[idx] = (r_sum / count as f32) as u8;
@@ -342,7 +348,7 @@ impl BlurNode {
                 }
             }
         }
-        
+
         // Vertical pass
         for y in 0..height {
             for x in 0..width {
@@ -350,7 +356,7 @@ impl BlurNode {
                 let mut g_sum = 0.0f32;
                 let mut b_sum = 0.0f32;
                 let mut count = 0;
-                
+
                 for dy in 0..=(blur_radius * 2) {
                     let sample_y = y as i32 + dy as i32 - blur_radius as i32;
                     if sample_y >= 0 && sample_y < height as i32 {
@@ -361,7 +367,7 @@ impl BlurNode {
                         count += 1;
                     }
                 }
-                
+
                 if count > 0 {
                     let idx = (y * width + x) * channels;
                     frame.data[idx] = (r_sum / count as f32) as u8;
@@ -371,7 +377,7 @@ impl BlurNode {
                 }
             }
         }
-        
+
         Ok(())
     }
 }
@@ -417,7 +423,9 @@ impl SharpenNode {
 impl NodeProcessor for SharpenNode {
     fn process(&mut self, mut input: FrameData) -> Result<FrameData> {
         if let Some(RenderData::Raster2D(ref mut video_data)) = input.render_data {
-            let strength = self.config.parameters
+            let strength = self
+                .config
+                .parameters
                 .get("strength")
                 .and_then(|v| v.as_f64())
                 .unwrap_or(1.0) as f32;
@@ -451,22 +459,28 @@ impl SharpenNode {
         let width = frame.width as usize;
         let height = frame.height as usize;
         let channels = 4; // RGBA
-        
+
         let mut result_data = frame.data.clone();
-        
+
         // Unsharp mask kernel (3x3 sharpening kernel)
         let kernel = [
-            0.0, -strength, 0.0,
-            -strength, 1.0 + 4.0 * strength, -strength,
-            0.0, -strength, 0.0,
+            0.0,
+            -strength,
+            0.0,
+            -strength,
+            1.0 + 4.0 * strength,
+            -strength,
+            0.0,
+            -strength,
+            0.0,
         ];
-        
+
         for y in 1..(height - 1) {
             for x in 1..(width - 1) {
                 let mut r_sum = 0.0f32;
                 let mut g_sum = 0.0f32;
                 let mut b_sum = 0.0f32;
-                
+
                 // Apply kernel
                 for ky in 0..3 {
                     for kx in 0..3 {
@@ -474,13 +488,13 @@ impl SharpenNode {
                         let sample_y = y + ky - 1;
                         let idx = (sample_y * width + sample_x) * channels;
                         let kernel_val = kernel[ky * 3 + kx];
-                        
+
                         r_sum += frame.data[idx] as f32 * kernel_val;
                         g_sum += frame.data[idx + 1] as f32 * kernel_val;
                         b_sum += frame.data[idx + 2] as f32 * kernel_val;
                     }
                 }
-                
+
                 let idx = (y * width + x) * channels;
                 result_data[idx] = r_sum.clamp(0.0, 255.0) as u8;
                 result_data[idx + 1] = g_sum.clamp(0.0, 255.0) as u8;
@@ -488,7 +502,7 @@ impl SharpenNode {
                 // Keep alpha unchanged
             }
         }
-        
+
         frame.data = result_data;
         Ok(())
     }

@@ -22,9 +22,16 @@ pub struct ControlMapping {
 #[derive(Debug, Clone)]
 pub enum ValueTransform {
     Direct,
-    Scale { min: f32, max: f32 },
+    Scale {
+        min: f32,
+        max: f32,
+    },
     Invert,
-    Threshold { threshold: f32, below: ParameterValue, above: ParameterValue },
+    Threshold {
+        threshold: f32,
+        below: ParameterValue,
+        above: ParameterValue,
+    },
 }
 
 impl ParameterControllerNode {
@@ -46,7 +53,7 @@ impl ParameterControllerNode {
                 description: "Control input mode".to_string(),
             },
         );
-        
+
         parameters.insert(
             "brightness".to_string(),
             ParameterDefinition {
@@ -58,7 +65,7 @@ impl ParameterControllerNode {
                 description: "Brightness control value".to_string(),
             },
         );
-        
+
         parameters.insert(
             "contrast".to_string(),
             ParameterDefinition {
@@ -70,7 +77,7 @@ impl ParameterControllerNode {
                 description: "Contrast control value".to_string(),
             },
         );
-        
+
         parameters.insert(
             "saturation".to_string(),
             ParameterDefinition {
@@ -99,18 +106,18 @@ impl ParameterControllerNode {
             target_mappings: HashMap::new(),
         })
     }
-    
+
     pub fn add_mapping(&mut self, control_name: String, mapping: ControlMapping) {
         self.target_mappings.insert(control_name, mapping);
     }
-    
+
     fn generate_control_commands(&self) -> Vec<ControlCommand> {
         let mut commands = Vec::new();
-        
+
         for (control_name, mapping) in &self.target_mappings {
             if let Some(value) = self.get_parameter(control_name) {
                 let transformed_value = self.transform_value(value, &mapping.value_transform);
-                
+
                 commands.push(ControlCommand {
                     target_node_id: mapping.target_node_id,
                     parameter_name: mapping.parameter_name.clone(),
@@ -119,10 +126,10 @@ impl ParameterControllerNode {
                 });
             }
         }
-        
+
         commands
     }
-    
+
     fn transform_value(&self, value: Value, transform: &ValueTransform) -> ParameterValue {
         match transform {
             ValueTransform::Direct => {
@@ -137,24 +144,28 @@ impl ParameterControllerNode {
                 } else {
                     ParameterValue::Float(0.0)
                 }
-            },
+            }
             ValueTransform::Scale { min, max } => {
                 let f = value.as_f64().unwrap_or(0.0) as f32;
                 let scaled = min + (f * (max - min));
                 ParameterValue::Float(scaled)
-            },
+            }
             ValueTransform::Invert => {
                 let f = value.as_f64().unwrap_or(0.0) as f32;
                 ParameterValue::Float(1.0 - f)
-            },
-            ValueTransform::Threshold { threshold, below, above } => {
+            }
+            ValueTransform::Threshold {
+                threshold,
+                below,
+                above,
+            } => {
                 let f = value.as_f64().unwrap_or(0.0) as f32;
                 if f < *threshold {
                     below.clone()
                 } else {
                     above.clone()
                 }
-            },
+            }
         }
     }
 }
@@ -162,13 +173,13 @@ impl ParameterControllerNode {
 impl NodeProcessor for ParameterControllerNode {
     fn process(&mut self, input: FrameData) -> Result<FrameData> {
         let commands = self.generate_control_commands();
-        
+
         let control_data = if !commands.is_empty() {
             Some(ControlData::MultiControl { commands })
         } else {
             input.control_data
         };
-        
+
         Ok(FrameData {
             render_data: input.render_data,
             audio_data: input.audio_data,
@@ -215,7 +226,7 @@ impl AnimationControllerNode {
                 description: "Play animation".to_string(),
             },
         );
-        
+
         parameters.insert(
             "time".to_string(),
             ParameterDefinition {
@@ -227,7 +238,7 @@ impl AnimationControllerNode {
                 description: "Animation time in seconds".to_string(),
             },
         );
-        
+
         parameters.insert(
             "loop".to_string(),
             ParameterDefinition {
@@ -259,17 +270,18 @@ impl AnimationControllerNode {
             loop_animation: true,
         })
     }
-    
+
     pub fn add_keyframe(&mut self, keyframe: Keyframe) {
         self.keyframes.push(keyframe);
         // Sort keyframes by time
-        self.keyframes.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+        self.keyframes
+            .sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
     }
-    
+
     fn update_time(&mut self, delta_time: f32) {
         if self.is_playing {
             self.current_time += delta_time;
-            
+
             if let Some(last_keyframe) = self.keyframes.last() {
                 if self.current_time > last_keyframe.time {
                     if self.loop_animation {
@@ -282,16 +294,16 @@ impl AnimationControllerNode {
             }
         }
     }
-    
+
     fn interpolate_value_at_time(&self, time: f32) -> Option<ParameterValue> {
         if self.keyframes.is_empty() {
             return None;
         }
-        
+
         // Find surrounding keyframes
         let mut before_keyframe = None;
         let mut after_keyframe = None;
-        
+
         for keyframe in &self.keyframes {
             if keyframe.time <= time {
                 before_keyframe = Some(keyframe);
@@ -300,26 +312,32 @@ impl AnimationControllerNode {
                 break;
             }
         }
-        
+
         match (before_keyframe, after_keyframe) {
             (Some(before), Some(after)) => {
                 // Interpolate between keyframes
                 let t = (time - before.time) / (after.time - before.time);
                 Some(self.interpolate_values(&before.value, &after.value, t, &before.interpolation))
-            },
+            }
             (Some(keyframe), None) => {
                 // Use last keyframe
                 Some(keyframe.value.clone())
-            },
+            }
             (None, Some(keyframe)) => {
                 // Use first keyframe
                 Some(keyframe.value.clone())
-            },
+            }
             (None, None) => None,
         }
     }
-    
-    fn interpolate_values(&self, from: &ParameterValue, to: &ParameterValue, t: f32, interpolation: &InterpolationType) -> ParameterValue {
+
+    fn interpolate_values(
+        &self,
+        from: &ParameterValue,
+        to: &ParameterValue,
+        t: f32,
+        interpolation: &InterpolationType,
+    ) -> ParameterValue {
         let smooth_t = match interpolation {
             InterpolationType::Linear => t,
             InterpolationType::EaseIn => t * t,
@@ -330,7 +348,7 @@ impl AnimationControllerNode {
                 } else {
                     1.0 - 2.0 * (1.0 - t).powi(2)
                 }
-            },
+            }
             InterpolationType::Bezier(p1, p2, p3, p4) => {
                 // Simplified cubic bezier interpolation
                 let t2 = t * t;
@@ -338,34 +356,32 @@ impl AnimationControllerNode {
                 let mt = 1.0 - t;
                 let mt2 = mt * mt;
                 let mt3 = mt2 * mt;
-                
+
                 mt3 * p1 + 3.0 * mt2 * t * p2 + 3.0 * mt * t2 * p3 + t3 * p4
-            },
+            }
         };
-        
+
         match (from, to) {
             (ParameterValue::Float(f1), ParameterValue::Float(f2)) => {
                 ParameterValue::Float(f1 + (f2 - f1) * smooth_t)
-            },
+            }
             (ParameterValue::Integer(i1), ParameterValue::Integer(i2)) => {
                 let interpolated = *i1 as f32 + (*i2 as f32 - *i1 as f32) * smooth_t;
                 ParameterValue::Integer(interpolated.round() as i32)
-            },
+            }
             (ParameterValue::Vector3(v1), ParameterValue::Vector3(v2)) => {
                 ParameterValue::Vector3(Vector3 {
                     x: v1.x + (v2.x - v1.x) * smooth_t,
                     y: v1.y + (v2.y - v1.y) * smooth_t,
                     z: v1.z + (v2.z - v1.z) * smooth_t,
                 })
-            },
-            (ParameterValue::Color(c1), ParameterValue::Color(c2)) => {
-                ParameterValue::Color([
-                    c1[0] + (c2[0] - c1[0]) * smooth_t,
-                    c1[1] + (c2[1] - c1[1]) * smooth_t,
-                    c1[2] + (c2[2] - c1[2]) * smooth_t,
-                    c1[3] + (c2[3] - c1[3]) * smooth_t,
-                ])
-            },
+            }
+            (ParameterValue::Color(c1), ParameterValue::Color(c2)) => ParameterValue::Color([
+                c1[0] + (c2[0] - c1[0]) * smooth_t,
+                c1[1] + (c2[1] - c1[1]) * smooth_t,
+                c1[2] + (c2[2] - c1[2]) * smooth_t,
+                c1[3] + (c2[3] - c1[3]) * smooth_t,
+            ]),
             _ => from.clone(), // Fallback for non-interpolable types
         }
     }
@@ -374,9 +390,15 @@ impl AnimationControllerNode {
 impl NodeProcessor for AnimationControllerNode {
     fn process(&mut self, input: FrameData) -> Result<FrameData> {
         // Update animation state from parameters
-        self.is_playing = self.get_parameter("play").and_then(|v| v.as_bool()).unwrap_or(false);
-        self.loop_animation = self.get_parameter("loop").and_then(|v| v.as_bool()).unwrap_or(true);
-        
+        self.is_playing = self
+            .get_parameter("play")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        self.loop_animation = self
+            .get_parameter("loop")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+
         // Manual time override
         if let Some(manual_time) = self.get_parameter("time").and_then(|v| v.as_f64()) {
             self.current_time = manual_time as f32;
@@ -384,7 +406,7 @@ impl NodeProcessor for AnimationControllerNode {
             // Auto-advance time (assume 60fps for now)
             self.update_time(1.0 / 60.0);
         }
-        
+
         let control_data = if let Some(value) = self.interpolate_value_at_time(self.current_time) {
             Some(ControlData::Animation {
                 keyframes: self.keyframes.clone(),
@@ -394,7 +416,7 @@ impl NodeProcessor for AnimationControllerNode {
         } else {
             input.control_data
         };
-        
+
         Ok(FrameData {
             render_data: input.render_data,
             audio_data: input.audio_data,

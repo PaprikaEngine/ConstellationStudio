@@ -1,4 +1,4 @@
-use constellation_core::{FrameData, NodeConfig};
+use constellation_core::{FrameData, NodeConfig, RenderData, TallyMetadata};
 use constellation_nodes::{NodeProcessor, ScreenCaptureNode, WindowCaptureNode};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -98,12 +98,10 @@ fn test_capture_processing_flow() {
 
     // Create dummy input frame data
     let input = FrameData {
-        video_data: None,
+        render_data: None,
         audio_data: None,
-        tally_data: None,
-        scene3d_data: None,
-        spatial_audio_data: None,
-        transform_data: None,
+        control_data: None,
+        tally_metadata: TallyMetadata::new(),
     };
 
     // Try to process a frame - this will either succeed (on systems with displays)
@@ -114,8 +112,11 @@ fn test_capture_processing_flow() {
     match result {
         Ok(output) => {
             // If processing succeeds, we should have video data
-            assert!(output.video_data.is_some());
-            let video_frame = output.video_data.unwrap();
+            assert!(output.render_data.is_some());
+            let video_frame = match output.render_data.unwrap() {
+                RenderData::Raster2D(frame) => frame,
+                _ => panic!("Expected Raster2D render data"),
+            };
             assert!(video_frame.width > 0);
             assert!(video_frame.height > 0);
             assert!(!video_frame.data.is_empty());

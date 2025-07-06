@@ -94,10 +94,10 @@ pub struct TallyMetadata {
     pub program_tally: bool,
     pub preview_tally: bool,
     pub custom_tally: HashMap<String, bool>,
-    
+
     // 伝播履歴（無限ループ防止）
     pub propagation_path: Vec<Uuid>,
-    
+
     // 伝播制御フラグ
     pub should_propagate: bool,
     pub propagation_source: Option<Uuid>,
@@ -114,30 +114,30 @@ impl TallyMetadata {
             propagation_source: None,
         }
     }
-    
+
     pub fn with_program_tally(mut self, enabled: bool) -> Self {
         self.program_tally = enabled;
         self
     }
-    
+
     pub fn with_preview_tally(mut self, enabled: bool) -> Self {
         self.preview_tally = enabled;
         self
     }
-    
+
     pub fn add_to_path(&mut self, node_id: Uuid) {
         self.propagation_path.push(node_id);
     }
-    
+
     pub fn has_visited(&self, node_id: Uuid) -> bool {
         self.propagation_path.contains(&node_id)
     }
-    
+
     pub fn merge_with(&mut self, other: &TallyMetadata) {
         // OR演算でTally状態をマージ
         self.program_tally |= other.program_tally;
         self.preview_tally |= other.preview_tally;
-        
+
         // カスタムTallyもマージ
         for (key, value) in &other.custom_tally {
             let current = self.custom_tally.get(key).copied().unwrap_or(false);
@@ -152,10 +152,10 @@ impl TallyMetadata {
 pub enum RenderData {
     // 2D最終画像
     Raster2D(VideoFrame),
-    
+
     // 3Dシーン（Phase 4）
     Scene3D(Scene3DData),
-    
+
     // 中間表現（Vulkan中間状態）
     Intermediate {
         gpu_buffers: Vec<u32>, // VulkanBufferのID参照（簡素化）
@@ -193,19 +193,19 @@ pub enum ControlData {
         parameter_name: String,
         value: ParameterValue,
     },
-    
+
     // 複数制御（MIDIコントローラ等）
     MultiControl {
         commands: Vec<ControlCommand>,
     },
-    
+
     // 3D変換制御
     Transform {
         position: Option<Vector3>,
         rotation: Option<Quaternion>,
         scale: Option<Vector3>,
     },
-    
+
     // カメラ制御
     Camera {
         position: Option<Vector3>,
@@ -214,7 +214,7 @@ pub enum ControlData {
         near: Option<f32>,
         far: Option<f32>,
     },
-    
+
     // アニメーション制御
     Animation {
         keyframes: Vec<Keyframe>,
@@ -444,9 +444,9 @@ pub enum ControlType {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ConnectionType {
-    RenderData,   // 映像・3Dデータ（メイン処理線）
-    Audio,        // 音声データ（ステレオ・3D音響統合）
-    Control,      // 制御信号線（パラメータ・変換制御）
+    RenderData, // 映像・3Dデータ（メイン処理線）
+    Audio,      // 音声データ（ステレオ・3D音響統合）
+    Control,    // 制御信号線（パラメータ・変換制御）
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

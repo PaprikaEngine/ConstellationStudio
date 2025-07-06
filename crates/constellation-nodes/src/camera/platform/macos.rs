@@ -43,15 +43,15 @@ impl PlatformCamera for MacOSCamera {
         // For now, generate a test pattern
         let frame_size = (self.width * self.height * 4) as usize;
         let mut data = vec![0u8; frame_size];
-        
+
         // Create a simple gradient test pattern
         for y in 0..self.height {
             for x in 0..self.width {
                 let idx = ((y * self.width + x) * 4) as usize;
-                data[idx] = (x * 255 / self.width) as u8;     // R
+                data[idx] = (x * 255 / self.width) as u8; // R
                 data[idx + 1] = (y * 255 / self.height) as u8; // G
-                data[idx + 2] = 128;                          // B
-                data[idx + 3] = 255;                          // A
+                data[idx + 2] = 128; // B
+                data[idx + 3] = 255; // A
             }
         }
 
@@ -104,7 +104,7 @@ mod tests {
     fn test_macos_camera_creation() {
         let camera = MacOSCamera::new(0, 1280, 720, 30);
         assert!(camera.is_ok());
-        
+
         let camera = camera.unwrap();
         assert_eq!(camera.width, 1280);
         assert_eq!(camera.height, 720);
@@ -115,21 +115,21 @@ mod tests {
     #[test]
     fn test_macos_camera_lifecycle() {
         let mut camera = MacOSCamera::new(0, 640, 480, 30).unwrap();
-        
+
         assert!(!camera.is_active());
-        
+
         let start_result = camera.start();
         assert!(start_result.is_ok());
         assert!(camera.is_active());
-        
+
         let frame_result = camera.capture_frame();
         assert!(frame_result.is_ok());
-        
+
         let frame = frame_result.unwrap();
         assert_eq!(frame.width, 640);
         assert_eq!(frame.height, 480);
         assert_eq!(frame.data.len(), 640 * 480 * 4);
-        
+
         let stop_result = camera.stop();
         assert!(stop_result.is_ok());
         assert!(!camera.is_active());
@@ -139,7 +139,7 @@ mod tests {
     fn test_macos_list_devices() {
         let devices = MacOSCamera::list_devices().unwrap();
         assert!(!devices.is_empty());
-        
+
         let device = &devices[0];
         assert_eq!(device.index, 0);
         assert_eq!(device.name, "Built-in Camera");

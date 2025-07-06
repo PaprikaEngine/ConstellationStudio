@@ -1,12 +1,12 @@
-use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};
 use crate::camera::CameraCapture;
 use crate::video_file::VideoFileReader;
+use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};
 use anyhow::Result;
 use constellation_core::*;
 use serde_json::Value;
 use std::collections::HashMap;
-use uuid::Uuid;
 use tracing::{debug, error, info};
+use uuid::Uuid;
 
 pub struct CameraInputNode {
     id: Uuid,
@@ -90,7 +90,7 @@ impl NodeProcessor for CameraInputNode {
                 match camera.start_capture() {
                     Ok(_) => {
                         info!("Camera capture started successfully");
-                    },
+                    }
                     Err(e) => {
                         error!("Failed to start camera capture: {}", e);
                         return Ok(FrameData {
@@ -106,12 +106,15 @@ impl NodeProcessor for CameraInputNode {
                     }
                 }
             }
-            
+
             match camera.capture_frame() {
                 Ok(frame) => {
-                    debug!("Successfully captured frame: {}x{}", frame.width, frame.height);
+                    debug!(
+                        "Successfully captured frame: {}x{}",
+                        frame.width, frame.height
+                    );
                     Some(frame)
-                },
+                }
                 Err(e) => {
                     error!("Failed to capture frame: {}", e);
                     // Return a fallback frame instead of failing
@@ -156,31 +159,39 @@ impl CameraInputNode {
         info!("Initializing camera capture");
 
         // Get parameters from config
-        let device_index = self.config.parameters
+        let device_index = self
+            .config
+            .parameters
             .get("device_id")
             .and_then(|v| v.as_str())
             .and_then(|s| s.parse::<u32>().ok())
             .unwrap_or(0);
 
         let (width, height) = self.parse_resolution()?;
-        
-        let fps = self.config.parameters
+
+        let fps = self
+            .config
+            .parameters
             .get("fps")
             .and_then(|v| v.as_u64())
             .unwrap_or(30) as u32;
 
         // Create camera capture instance
         let camera = CameraCapture::new(device_index, width, height, fps)?;
-        
-        info!("Camera capture initialized: device={}, {}x{}@{}", 
-              device_index, width, height, fps);
+
+        info!(
+            "Camera capture initialized: device={}, {}x{}@{}",
+            device_index, width, height, fps
+        );
 
         self.camera_capture = Some(camera);
         Ok(())
     }
 
     fn parse_resolution(&self) -> Result<(u32, u32)> {
-        let resolution = self.config.parameters
+        let resolution = self
+            .config
+            .parameters
             .get("resolution")
             .and_then(|v| v.as_str())
             .unwrap_or("1920x1080");
@@ -190,9 +201,11 @@ impl CameraInputNode {
             return Err(anyhow::anyhow!("Invalid resolution format: {}", resolution));
         }
 
-        let width = parts[0].parse::<u32>()
+        let width = parts[0]
+            .parse::<u32>()
             .map_err(|_| anyhow::anyhow!("Invalid width: {}", parts[0]))?;
-        let height = parts[1].parse::<u32>()
+        let height = parts[1]
+            .parse::<u32>()
             .map_err(|_| anyhow::anyhow!("Invalid height: {}", parts[1]))?;
 
         Ok((width, height))
@@ -200,25 +213,25 @@ impl CameraInputNode {
 
     fn create_fallback_frame(&self) -> VideoFrame {
         let (width, height) = self.parse_resolution().unwrap_or((1920, 1080));
-        
+
         // Create a simple error pattern (red frame with diagonal lines)
         let frame_size = (width * height * 4) as usize;
         let mut data = vec![0u8; frame_size];
-        
+
         for y in 0..height {
             for x in 0..width {
                 let idx = ((y * width + x) * 4) as usize;
-                
+
                 // Create diagonal stripes pattern for error indication
                 if (x + y) % 32 < 16 {
-                    data[idx] = 255;     // R - red error pattern
-                    data[idx + 1] = 0;   // G
-                    data[idx + 2] = 0;   // B
+                    data[idx] = 255; // R - red error pattern
+                    data[idx + 1] = 0; // G
+                    data[idx + 2] = 0; // B
                     data[idx + 3] = 255; // A
                 } else {
-                    data[idx] = 128;     // R - darker red
-                    data[idx + 1] = 0;   // G
-                    data[idx + 2] = 0;   // B
+                    data[idx] = 128; // R - darker red
+                    data[idx + 1] = 0; // G
+                    data[idx + 2] = 0; // B
                     data[idx + 3] = 255; // A
                 }
             }
@@ -298,19 +311,27 @@ impl NodeProcessor for VideoFileInputNode {
         let (video_frame, audio_frame) = if let Some(ref mut reader) = self.video_reader {
             match reader.read_frame() {
                 Ok((video, audio)) => {
-                    debug!("Successfully read frame from video file: {}x{}", 
-                           video.width, video.height);
+                    debug!(
+                        "Successfully read frame from video file: {}x{}",
+                        video.width, video.height
+                    );
                     (Some(video), audio)
-                },
+                }
                 Err(e) => {
                     error!("Failed to read frame from video file: {}", e);
                     // Return a fallback frame instead of failing
-                    (Some(self.create_fallback_video_frame()), Some(self.create_fallback_audio_frame()))
+                    (
+                        Some(self.create_fallback_video_frame()),
+                        Some(self.create_fallback_audio_frame()),
+                    )
                 }
             }
         } else {
             error!("Video reader not initialized, using fallback");
-            (Some(self.create_fallback_video_frame()), Some(self.create_fallback_audio_frame()))
+            (
+                Some(self.create_fallback_video_frame()),
+                Some(self.create_fallback_audio_frame()),
+            )
         };
 
         Ok(FrameData {
@@ -346,7 +367,9 @@ impl VideoFileInputNode {
         info!("Initializing video file reader");
 
         // Get file path from parameters
-        let file_path = self.config.parameters
+        let file_path = self
+            .config
+            .parameters
             .get("file_path")
             .and_then(|v| v.as_str())
             .unwrap_or("");
@@ -361,7 +384,9 @@ impl VideoFileInputNode {
         let mut reader = VideoFileReader::new(file_path)?;
 
         // Set loop playback if enabled
-        let loop_playback = self.config.parameters
+        let loop_playback = self
+            .config
+            .parameters
             .get("loop")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
@@ -379,23 +404,23 @@ impl VideoFileInputNode {
     fn create_fallback_video_frame(&self) -> VideoFrame {
         let width = 1920;
         let height = 1080;
-        
+
         // Create a "No Video" pattern (blue frame with text pattern)
         let frame_size = (width * height * 4) as usize;
         let mut data = vec![0u8; frame_size];
-        
+
         for y in 0..height {
             for x in 0..width {
                 let idx = ((y * width + x) * 4) as usize;
-                
+
                 // Create a blue background with white diagonal stripes
                 if (x + y) % 64 < 32 {
-                    data[idx] = 64;      // R - dark blue
-                    data[idx + 1] = 64;  // G
+                    data[idx] = 64; // R - dark blue
+                    data[idx + 1] = 64; // G
                     data[idx + 2] = 255; // B - blue
                     data[idx + 3] = 255; // A
                 } else {
-                    data[idx] = 128;     // R - lighter blue
+                    data[idx] = 128; // R - lighter blue
                     data[idx + 1] = 128; // G
                     data[idx + 2] = 255; // B
                     data[idx + 3] = 255; // A

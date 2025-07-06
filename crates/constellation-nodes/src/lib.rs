@@ -19,7 +19,7 @@ pub use effects::*;
 pub use input::*;
 pub use output::*;
 
-// Export types needed for tests  
+// Export types needed for tests
 pub use constellation_core::NodeConfig;
 
 pub trait NodeProcessor: Send {
@@ -27,7 +27,7 @@ pub trait NodeProcessor: Send {
     fn get_properties(&self) -> NodeProperties;
     fn set_parameter(&mut self, key: &str, value: serde_json::Value) -> Result<()>;
     fn get_parameter(&self, key: &str) -> Option<serde_json::Value>;
-    
+
     // Tally自動伝播システム
     fn process_tally_metadata(&mut self, metadata: &TallyMetadata) -> TallyMetadata {
         // デフォルト実装: 変更なしで伝播
@@ -35,12 +35,12 @@ pub trait NodeProcessor: Send {
         result.add_to_path(self.get_properties().id);
         result
     }
-    
+
     fn should_propagate_tally(&self, _metadata: &TallyMetadata) -> bool {
         // デフォルト実装: 常に伝播
         true
     }
-    
+
     fn generate_tally_state(&self) -> TallyMetadata {
         // デフォルト実装: Tally状態なし
         TallyMetadata::new()
@@ -117,10 +117,18 @@ pub fn create_node_processor(
             TallyType::Router => Ok(Box::new(TallyRouterNode::new(id, config)?)),
         },
         NodeType::Control(control_type) => match control_type {
-            ControlType::ParameterController => Ok(Box::new(ParameterControllerNode::new(id, config)?)),
-            ControlType::AnimationController => Ok(Box::new(AnimationControllerNode::new(id, config)?)),
-            ControlType::MidiController => Err(anyhow::anyhow!("MIDI Controller not yet implemented")),
-            ControlType::OscController => Err(anyhow::anyhow!("OSC Controller not yet implemented")),
+            ControlType::ParameterController => {
+                Ok(Box::new(ParameterControllerNode::new(id, config)?))
+            }
+            ControlType::AnimationController => {
+                Ok(Box::new(AnimationControllerNode::new(id, config)?))
+            }
+            ControlType::MidiController => {
+                Err(anyhow::anyhow!("MIDI Controller not yet implemented"))
+            }
+            ControlType::OscController => {
+                Err(anyhow::anyhow!("OSC Controller not yet implemented"))
+            }
         },
     }
 }

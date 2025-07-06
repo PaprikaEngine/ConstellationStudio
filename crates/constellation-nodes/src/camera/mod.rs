@@ -46,7 +46,7 @@ impl CameraCapture {
 
     pub fn list_devices() -> Result<Vec<CameraDevice>> {
         let devices = nokhwa::query(ApiBackend::Auto)?;
-        
+
         let camera_devices = devices
             .into_iter()
             .map(|info| CameraDevice {
@@ -56,7 +56,10 @@ impl CameraCapture {
                         match s.parse() {
                             Ok(index) => index,
                             Err(_) => {
-                                warn!("Non-numeric camera index '{}', assigning hash-based index", s);
+                                warn!(
+                                    "Non-numeric camera index '{}', assigning hash-based index",
+                                    s
+                                );
                                 // Use hash of string to avoid conflicts
                                 use std::collections::hash_map::DefaultHasher;
                                 use std::hash::{Hash, Hasher};
@@ -65,7 +68,7 @@ impl CameraCapture {
                                 (hasher.finish() % 1000) as u32 // Keep it reasonable
                             }
                         }
-                    },
+                    }
                 },
                 name: info.human_name(),
                 description: info.description().to_string(),
@@ -85,9 +88,8 @@ impl CameraCapture {
             self.device_index, self.width, self.height, self.fps
         );
 
-        let requested_format = RequestedFormat::new::<RgbFormat>(
-            RequestedFormatType::AbsoluteHighestFrameRate,
-        );
+        let requested_format =
+            RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestFrameRate);
 
         let mut camera = Camera::new(self.device_index.clone(), requested_format)?;
 
@@ -166,7 +168,10 @@ impl CameraCapture {
         }
     }
 
-    pub fn set_parameters(&mut self, parameters: &HashMap<String, serde_json::Value>) -> Result<()> {
+    pub fn set_parameters(
+        &mut self,
+        parameters: &HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
         if let Some(width) = parameters.get("width").and_then(|v| v.as_u64()) {
             self.width = width as u32;
         }
@@ -231,7 +236,7 @@ mod tests {
     fn test_camera_capture_creation() {
         let capture = CameraCapture::new(0, 640, 480, 30);
         assert!(capture.is_ok());
-        
+
         let capture = capture.unwrap();
         assert_eq!(capture.width, 640);
         assert_eq!(capture.height, 480);
@@ -242,13 +247,16 @@ mod tests {
     #[test]
     fn test_list_camera_devices() {
         let result = CameraCapture::list_devices();
-        
+
         // This may fail in CI environments without cameras
         match result {
             Ok(devices) => {
                 println!("Found {} camera devices", devices.len());
                 for device in devices {
-                    println!("  Device {}: {} - {}", device.index, device.name, device.description);
+                    println!(
+                        "  Device {}: {} - {}",
+                        device.index, device.name, device.description
+                    );
                 }
             }
             Err(e) => {
@@ -260,15 +268,15 @@ mod tests {
     #[test]
     fn test_camera_parameters() {
         let mut capture = CameraCapture::new(0, 640, 480, 30).unwrap();
-        
+
         let mut params = HashMap::new();
         params.insert("width".to_string(), serde_json::Value::from(1920));
         params.insert("height".to_string(), serde_json::Value::from(1080));
         params.insert("fps".to_string(), serde_json::Value::from(60));
-        
+
         let result = capture.set_parameters(&params);
         assert!(result.is_ok());
-        
+
         assert_eq!(capture.width, 1920);
         assert_eq!(capture.height, 1080);
         assert_eq!(capture.fps, 60);
