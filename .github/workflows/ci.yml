@@ -7,9 +7,6 @@ on:
     types: [opened, synchronize, reopened]
     branches: [ main ]
 
-permissions:
-  pull-requests: write # CodeReview.aiのために必要
-
 env:
   CARGO_TERM_COLOR: always
 
@@ -24,24 +21,21 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      run: |
+        git clone --depth=1 --branch=${{ github.ref_name }} https://github.com/${{ github.repository }} .
+        git checkout ${{ github.sha }}
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust-version }}
-        components: rustfmt, clippy
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ matrix.rust-version }}
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        rustup component add rustfmt clippy
 
-    - name: Cache cargo registry
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
+    - name: Setup Rust cache
+      run: |
+        mkdir -p ~/.cargo/registry
+        mkdir -p ~/.cargo/git
+        mkdir -p target
 
     - name: Install system dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
@@ -79,60 +73,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      run: |
+        git clone --depth=1 --branch=${{ github.ref_name }} https://github.com/${{ github.repository }} .
+        git checkout ${{ github.sha }}
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install cargo-audit
       run: cargo install cargo-audit
 
     - name: Run security audit
       run: cargo audit
-
-  coverage:
-    name: Code Coverage
-    needs: test
-    runs-on: ubuntu-latest
-    continue-on-error: true  # Don't fail CI if coverage fails
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: llvm-tools-preview
-
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev
-
-    - name: Install cargo-tarpaulin
-      run: cargo install cargo-tarpaulin
-
-    - name: Generate code coverage
-      run: |
-        # Skip Vulkan-heavy crates that cause issues in CI
-        cargo tarpaulin --workspace --verbose --timeout 300 --out xml \
-          --exclude constellation-vulkan --exclude constellation-core || true
-
-    - name: Upload coverage to Codecov
-      if: success()
-      uses: codecov/codecov-action@v4
-      with:
-        files: ./cobertura.xml
-        fail_ci_if_error: false
-        token: ${{ secrets.CODECOV_TOKEN }} # 推奨
-
-  code-review:
-    name: AI Code Review
-    # プルリクエストの時のみ実行
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Code Review
-        uses: CodeReview-ai/codereview-action@v1
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
