@@ -391,6 +391,7 @@ pub enum NodeType {
     Effect(EffectType),
     Audio(AudioType),
     Tally(TallyType),
+    Control(ControlType),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -431,6 +432,14 @@ pub enum TallyType {
     Monitor,
     Logic,
     Router,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ControlType {
+    ParameterController,
+    AnimationController,
+    MidiController,
+    OscController,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

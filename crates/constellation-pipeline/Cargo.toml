@@ -8,6 +8,7 @@ constellation-core = { path = "../constellation-core" }
 constellation-vulkan = { path = "../constellation-vulkan" }
 constellation-nodes = { path = "../constellation-nodes" }
 anyhow = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

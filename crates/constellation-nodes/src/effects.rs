@@ -80,6 +80,11 @@ impl NodeProcessor for ColorCorrectionNode {
     fn process(&mut self, input: FrameData) -> Result<FrameData> {
         let mut output = input;
 
+        // Control線からのパラメータ制御を処理
+        if let Some(ref control_data) = output.control_data {
+            self.process_control_data(control_data)?;
+        }
+
         if let Some(RenderData::Raster2D(ref mut video_frame)) = output.render_data {
             let brightness = self
                 .get_parameter("brightness")
@@ -119,6 +124,51 @@ impl NodeProcessor for ColorCorrectionNode {
 }
 
 impl ColorCorrectionNode {
+    fn process_control_data(&mut self, control_data: &ControlData) -> Result<()> {
+        match control_data {
+            ControlData::Parameter { target_node_id, parameter_name, value } => {
+                if *target_node_id == self.id {
+                    let json_value = match value {
+                        ParameterValue::Float(f) => Value::from(*f),
+                        ParameterValue::Integer(i) => Value::from(*i),
+                        ParameterValue::Boolean(b) => Value::Bool(*b),
+                        ParameterValue::String(s) => Value::String(s.clone()),
+                        ParameterValue::Color(c) => Value::Array(vec![
+                            Value::from(c[0]),
+                            Value::from(c[1]),
+                            Value::from(c[2]),
+                            Value::from(c[3]),
+                        ]),
+                        _ => return Ok(()), // Skip unsupported types
+                    };
+                    self.set_parameter(parameter_name, json_value)?;
+                }
+            },
+            ControlData::MultiControl { commands } => {
+                for command in commands {
+                    if command.target_node_id == self.id {
+                        let json_value = match &command.value {
+                            ParameterValue::Float(f) => Value::from(*f),
+                            ParameterValue::Integer(i) => Value::from(*i),
+                            ParameterValue::Boolean(b) => Value::Bool(*b),
+                            ParameterValue::String(s) => Value::String(s.clone()),
+                            ParameterValue::Color(c) => Value::Array(vec![
+                                Value::from(c[0]),
+                                Value::from(c[1]),
+                                Value::from(c[2]),
+                                Value::from(c[3]),
+                            ]),
+                            _ => continue, // Skip unsupported types
+                        };
+                        self.set_parameter(&command.parameter_name, json_value)?;
+                    }
+                }
+            },
+            _ => {}, // Ignore other control types for now
+        }
+        Ok(())
+    }
+
     fn apply_color_correction(
         &self,
         frame: &mut VideoFrame,
