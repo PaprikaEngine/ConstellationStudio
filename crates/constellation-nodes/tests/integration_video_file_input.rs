@@ -123,7 +123,11 @@ fn test_video_file_input_node_without_file_path() {
 
     let audio_data = output.audio_data.unwrap();
     match audio_data {
-        UnifiedAudioData::Stereo { sample_rate, channels, samples: _ } => {
+        UnifiedAudioData::Stereo {
+            sample_rate,
+            channels,
+            samples: _,
+        } => {
             assert_eq!(sample_rate, 48000);
             assert_eq!(channels, 2);
         }
@@ -172,7 +176,11 @@ fn test_video_file_input_node_with_valid_file() {
 
     let audio_data = output.audio_data.unwrap();
     match audio_data {
-        UnifiedAudioData::Stereo { sample_rate, channels, samples: _ } => {
+        UnifiedAudioData::Stereo {
+            sample_rate,
+            channels,
+            samples: _,
+        } => {
             assert_eq!(sample_rate, 48000);
             assert_eq!(channels, 2);
         }
@@ -356,7 +364,7 @@ fn test_video_file_reader_loop_playback() {
 
     // Simply verify that loop mode is enabled - this is more reliable than testing frame reading
     // since frame reading might fail in CI environments
-    
+
     // Read a frame to test basic functionality
     match reader.read_frame() {
         Ok(_) => {
@@ -366,7 +374,7 @@ fn test_video_file_reader_loop_playback() {
             println!("Video file reading failed (expected in CI): {}", e);
         }
     }
-    
+
     // Just verify the reader is still in a valid state
     assert!(reader.is_open());
     println!("Loop playback test completed successfully");

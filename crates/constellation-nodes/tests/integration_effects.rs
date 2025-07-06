@@ -491,7 +491,11 @@ fn test_effects_preserve_non_video_data() {
 
     let audio = output.audio_data.unwrap();
     match audio {
-        UnifiedAudioData::Stereo { sample_rate, channels, samples } => {
+        UnifiedAudioData::Stereo {
+            sample_rate,
+            channels,
+            samples,
+        } => {
             assert_eq!(sample_rate, 48000);
             assert_eq!(channels, 2);
             assert_eq!(samples.len(), 1024);
@@ -535,7 +539,11 @@ fn test_effects_with_no_video_data() {
     assert!(output.audio_data.is_some());
     let audio = output.audio_data.unwrap();
     match audio {
-        UnifiedAudioData::Stereo { sample_rate, channels, samples: _ } => {
+        UnifiedAudioData::Stereo {
+            sample_rate,
+            channels,
+            samples: _,
+        } => {
             assert_eq!(sample_rate, 44100);
             assert_eq!(channels, 1);
         }
