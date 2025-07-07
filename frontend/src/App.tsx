@@ -51,7 +51,7 @@ function AppContent() {
     };
 
     autoConnect();
-  }, [isConnected, connectionError, isConnecting, connectToBackend]);
+  }, [isConnected, connectionError, connectToBackend]);
 
   const handleConnect = async () => {
     setIsConnecting(true);

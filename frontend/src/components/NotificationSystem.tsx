@@ -30,15 +30,19 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
     setVisibleNotifications(notifications);
 
     // Auto-dismiss notifications with duration
-    notifications.forEach((notification) => {
+    const timers = notifications.map((notification) => {
       if (notification.duration && notification.duration > 0) {
-        const timer = setTimeout(() => {
+        return setTimeout(() => {
           onDismiss(notification.id);
         }, notification.duration);
-
-        return () => clearTimeout(timer);
       }
+      return null;
     });
+
+    // Cleanup function to clear all timers
+    return () => {
+      timers.forEach((timerId) => timerId && clearTimeout(timerId));
+    };
   }, [notifications, onDismiss]);
 
   const getNotificationIcon = (type: NotificationType) => {

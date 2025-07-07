@@ -52,7 +52,10 @@ export interface ProjectSaveOptions {
 
 export interface ProjectLoadResult {
   success: boolean;
-  configuration?: ProjectConfiguration;
+  configuration?: ProjectConfiguration & {
+    nodes: any[]; // React Flow Node[]
+    edges: any[]; // React Flow Edge[]
+  };
   error?: string;
   warnings?: string[];
 }

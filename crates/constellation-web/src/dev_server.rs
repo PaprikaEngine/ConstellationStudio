@@ -134,9 +134,11 @@ impl DevAppState {
     }
 
     pub fn set_node_parameter(&self, node_id: Uuid, parameter: String, value: serde_json::Value) -> Result<()> {
-        // Check if node exists
-        if !self.nodes.lock().unwrap().contains_key(&node_id) {
-            return Err(anyhow::anyhow!("Node does not exist"));
+        // Check if node exists and update its config
+        {
+            let mut nodes = self.nodes.lock().unwrap();
+            let node = nodes.get_mut(&node_id).ok_or_else(|| anyhow::anyhow!("Node does not exist"))?;
+            node.config.parameters.insert(parameter.clone(), value.clone());
         }
 
         let _ = self.event_sender.send(DevEngineEvent::ParameterChanged { 
