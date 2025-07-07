@@ -1,6 +1,7 @@
 import React from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { ConnectionType } from '../types';
+import { useTheme, getThemeColors, getThemeStyles } from '../contexts/ThemeContext';
 
 interface ConstellationNodeData {
   nodeType: any;
@@ -13,14 +14,19 @@ export const ConstellationNode: React.FC<NodeProps<ConstellationNodeData>> = ({
   data,
   selected,
 }) => {
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
+  const styles = getThemeStyles(isDark);
   const getHandleColor = (connectionType: ConnectionType) => {
     switch (connectionType) {
-      case 'Video':
+      case 'RenderData':
         return '#ff6b6b';
       case 'Audio':
         return '#4ecdc4';
+      case 'Control':
+        return '#9b59b6';
       case 'Tally':
-        return '#ffe66d';
+        return '#f39c12';
       default:
         return '#95a5a6';
     }
@@ -35,9 +41,11 @@ export const ConstellationNode: React.FC<NodeProps<ConstellationNodeData>> = ({
         id={`input-${type.toLowerCase()}-${index}`}
         style={{
           background: getHandleColor(type),
-          top: `${30 + index * 20}px`,
-          width: 12,
-          height: 12,
+          top: `${35 + index * 22}px`,
+          width: 14,
+          height: 14,
+          border: '2px solid #ffffff',
+          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
         }}
       />
     ));
@@ -52,41 +60,51 @@ export const ConstellationNode: React.FC<NodeProps<ConstellationNodeData>> = ({
         id={`output-${type.toLowerCase()}-${index}`}
         style={{
           background: getHandleColor(type),
-          top: `${30 + index * 20}px`,
-          width: 12,
-          height: 12,
+          top: `${35 + index * 22}px`,
+          width: 14,
+          height: 14,
+          border: '2px solid #ffffff',
+          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
         }}
       />
     ));
   };
 
-  const nodeHeight = Math.max(60, 30 + Math.max(data.inputTypes.length, data.outputTypes.length) * 20);
+  const nodeHeight = Math.max(70, 35 + Math.max(data.inputTypes.length, data.outputTypes.length) * 22);
 
   return (
     <div
       style={{
-        background: selected ? '#e3f2fd' : '#f5f5f5',
-        border: selected ? '2px solid #2196f3' : '1px solid #ccc',
-        borderRadius: '8px',
-        padding: '10px',
-        minWidth: '150px',
+        background: selected ? colors.nodeBackgroundSelected : colors.nodeBackground,
+        border: selected ? `2px solid ${colors.nodeBorderSelected}` : `1px solid ${colors.nodeBorder}`,
+        borderRadius: '10px',
+        padding: '12px',
+        minWidth: '160px',
         height: `${nodeHeight}px`,
         position: 'relative',
-        boxShadow: selected ? '0 4px 8px rgba(0,0,0,0.2)' : '0 2px 4px rgba(0,0,0,0.1)',
+        boxShadow: selected ? styles.shadowHeavy : styles.shadowLight,
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
       {renderInputHandles()}
       
       <div style={{ 
         fontSize: '14px', 
-        fontWeight: 'bold', 
+        fontWeight: '600', 
         textAlign: 'center',
-        marginBottom: '5px',
+        marginBottom: '8px',
+        color: selected ? (isDark ? '#ffffff' : '#1565c0') : colors.text,
+        letterSpacing: '0.3px',
       }}>
         {data.label}
       </div>
       
-      <div style={{ fontSize: '12px', color: '#666' }}>
+      <div style={{ 
+        fontSize: '11px', 
+        color: selected ? (isDark ? '#cbd5e0' : '#5e72e4') : colors.textSecondary,
+        lineHeight: '1.4',
+        fontWeight: '500',
+      }}>
         {data.inputTypes.length > 0 && (
           <div>In: {data.inputTypes.join(', ')}</div>
         )}

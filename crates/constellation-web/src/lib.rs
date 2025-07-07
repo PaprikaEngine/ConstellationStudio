@@ -1,5 +1,5 @@
 use constellation_core::*;
-// use constellation_nodes::*;
+use constellation_nodes::NodeProperties;
 use anyhow::Result;
 use axum::{
     extract::{Path, State},
@@ -19,8 +19,9 @@ use uuid::Uuid;
 
 pub mod api;
 pub mod websocket;
+pub mod dev_server;
 
-pub use api::*;
+// pub use api::*;
 pub use websocket::*;
 
 #[derive(Clone)]
@@ -43,15 +44,33 @@ pub enum EngineEvent {
 
 impl AppState {
     pub fn new() -> Result<Self> {
-        let engine = Arc::new(Mutex::new(ConstellationEngine::new()?));
-        // let node_processors = Arc::new(Mutex::new(HashMap::new()));
+        // TODO: For development, use a mock engine to avoid Vulkan dependency
+        // In production, this should use the real ConstellationEngine
+        let engine = Arc::new(Mutex::new(Self::create_mock_engine()?));
         let (event_sender, _) = broadcast::channel(1000);
 
         Ok(Self {
             engine,
-            // node_processors,
             event_sender,
         })
+    }
+
+    // Mock engine for development/testing without Vulkan
+    fn create_mock_engine() -> Result<ConstellationEngine> {
+        // Create a mock engine that doesn't require Vulkan initialization
+        // This is temporary for development and communication testing
+        tracing::warn!("Using mock engine without Vulkan for development");
+        
+        // For now, we'll create the engine but handle the Vulkan error gracefully
+        match ConstellationEngine::new() {
+            Ok(engine) => Ok(engine),
+            Err(e) => {
+                tracing::warn!("Vulkan initialization failed (expected in development): {}", e);
+                // Return a custom error for now - in a real implementation,
+                // we'd create a mock engine struct
+                Err(anyhow::anyhow!("Mock engine not implemented - Vulkan required"))
+            }
+        }
     }
 
     pub fn add_node(&self, node_type: NodeType, config: NodeConfig) -> Result<Uuid> {

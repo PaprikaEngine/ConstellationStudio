@@ -3,6 +3,10 @@ name = "constellation-web"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "constellation-server"
+path = "src/main.rs"
+
 [dependencies]
 constellation-core = { path = "../constellation-core" }
 constellation-nodes = { path = "../constellation-nodes" }
@@ -13,7 +17,8 @@ anyhow = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 tracing = { workspace = true }
-axum = "0.7"
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors"] }
-futures = "0.3"
+tracing-subscriber = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+futures = { workspace = true }

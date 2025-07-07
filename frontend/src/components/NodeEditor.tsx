@@ -3,11 +3,6 @@ import ReactFlow, {
   Background,
   Controls,
   MiniMap,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  Connection,
-  Edge,
   ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -16,6 +11,7 @@ import { ConstellationNode } from './ConstellationNode';
 import { ConstellationEdge } from './ConstellationEdge';
 import { NodePalette } from './NodePalette';
 import { useNodeStore } from '../stores/useNodeStore';
+import { useTheme, getThemeColors } from '../contexts/ThemeContext';
 
 const nodeTypes = {
   constellation: ConstellationNode,
@@ -32,7 +28,11 @@ export const NodeEditor: React.FC = () => {
     onNodesChange,
     onEdgesChange,
     onConnect,
+    setViewport,
   } = useNodeStore();
+  
+  const { isDark } = useTheme();
+  const colors = getThemeColors(isDark);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -40,7 +40,7 @@ export const NodeEditor: React.FC = () => {
   }, []);
 
   const onDrop = useCallback(
-    (event: React.DragEvent) => {
+    async (event: React.DragEvent) => {
       event.preventDefault();
 
       const reactFlowBounds = (event.target as Element)
@@ -61,16 +61,32 @@ export const NodeEditor: React.FC = () => {
       const [category, subtype] = type.split('-');
       const nodeStore = useNodeStore.getState();
       
-      switch (category) {
-        case 'input':
-          nodeStore.createInputNode(subtype, position);
-          break;
-        case 'output':
-          nodeStore.createOutputNode(subtype, position);
-          break;
-        case 'effect':
-          nodeStore.createEffectNode(subtype, position);
-          break;
+      try {
+        switch (category) {
+          case 'input':
+            await nodeStore.createInputNode(subtype, position);
+            break;
+          case 'output':
+            await nodeStore.createOutputNode(subtype, position);
+            break;
+          case 'effect':
+            await nodeStore.createEffectNode(subtype, position);
+            break;
+          case 'audio':
+            await nodeStore.createAudioNode(subtype, position);
+            break;
+          case 'control':
+            await nodeStore.createControlNode(subtype, position);
+            break;
+          case 'tally':
+            await nodeStore.createTallyNode(subtype, position);
+            break;
+          default:
+            console.warn('Unknown node category:', category);
+        }
+      } catch (error) {
+        console.error('Failed to create node:', error);
+        // TODO: Show user-friendly error message
       }
     },
     []
@@ -91,9 +107,10 @@ export const NodeEditor: React.FC = () => {
             onDragOver={onDragOver}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
+            onViewportChange={(viewport) => setViewport(viewport)}
             fitView
           >
-            <Background />
+            <Background color={colors.canvasDot} gap={20} size={2} />
             <Controls />
             <MiniMap />
           </ReactFlow>
