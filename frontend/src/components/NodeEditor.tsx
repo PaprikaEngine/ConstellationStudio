@@ -21,7 +21,11 @@ const edgeTypes = {
   constellation: ConstellationEdge,
 };
 
-export const NodeEditor: React.FC = () => {
+interface NodeEditorProps {
+  onNodeSelect?: (nodeId: string | null) => void;
+}
+
+export const NodeEditor: React.FC<NodeEditorProps> = ({ onNodeSelect }) => {
   const {
     nodes,
     edges,
@@ -92,6 +96,14 @@ export const NodeEditor: React.FC = () => {
     []
   );
 
+  const onSelectionChange = useCallback(
+    ({ nodes }: { nodes: any[] }) => {
+      const selectedNodeId = nodes.length > 0 ? nodes[0].id : null;
+      onNodeSelect?.(selectedNodeId);
+    },
+    [onNodeSelect]
+  );
+
   return (
     <div style={{ height: '100vh', display: 'flex' }}>
       <NodePalette />
@@ -105,6 +117,7 @@ export const NodeEditor: React.FC = () => {
             onConnect={onConnect}
             onDrop={onDrop}
             onDragOver={onDragOver}
+            onSelectionChange={onSelectionChange}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             onViewportChange={(viewport) => setViewport(viewport)}

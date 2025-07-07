@@ -241,7 +241,7 @@ function AppContent() {
         
         <main style={{ height: 'calc(100vh - 80px)', display: 'flex' }}>
           <div style={{ flex: 1 }}>
-            <NodeEditor />
+            <NodeEditor onNodeSelect={setSelectedNodeId} />
           </div>
           
           {showParameterPanel && (
@@ -258,8 +258,13 @@ function AppContent() {
         {/* Parameter panel toggle button */}
         <button
           onClick={() => {
-            setSelectedNodeId('test-node'); // TODO: Use actual selected node
-            setShowParameterPanel(!showParameterPanel);
+            // Only toggle if we have a valid selected node
+            if (selectedNodeId) {
+              setShowParameterPanel(!showParameterPanel);
+            } else {
+              // Show info that no node is selected
+              notifications.info('No Node Selected', 'Please select a node first to view its parameters');
+            }
           }}
           style={{
             position: 'fixed',
