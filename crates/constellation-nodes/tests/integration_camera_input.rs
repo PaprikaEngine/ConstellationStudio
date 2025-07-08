@@ -229,7 +229,9 @@ fn test_camera_capture_creation_and_lifecycle() {
                     let frame_result = capture.capture_frame();
                     match frame_result {
                         Ok(frame) => {
-                            println!("Frame captured: {}x{}", frame.width, frame.height);
+                            let width = frame.width;
+                            let height = frame.height;
+                            println!("Frame captured: {width}x{height}");
                             assert!(frame.width > 0);
                             assert!(frame.height > 0);
                             assert!(!frame.data.is_empty());

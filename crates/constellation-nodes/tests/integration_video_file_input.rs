@@ -371,7 +371,7 @@ fn test_video_file_reader_loop_playback() {
             println!("Video file reader working correctly with loop enabled");
         }
         Err(e) => {
-            println!("Video file reading failed (expected in CI): {}", e);
+            println!("Video file reading failed (expected in CI): {e}");
         }
     }
 

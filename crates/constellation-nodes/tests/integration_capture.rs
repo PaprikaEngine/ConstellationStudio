@@ -129,8 +129,7 @@ fn test_capture_processing_flow() {
         }
         Err(e) => {
             // If it fails, it should be due to missing display hardware or permissions
-            let error_msg = format!("{}", e);
-            println!("Capture test skipped due to environment: {}", error_msg);
+            println!("Capture test skipped due to environment: {e}");
             // This is acceptable in CI/headless environments
         }
     }

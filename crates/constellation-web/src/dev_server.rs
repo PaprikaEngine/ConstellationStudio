@@ -110,7 +110,7 @@ impl DevAppState {
             node_type: node_type.clone(),
         });
 
-        tracing::info!("Added node: {} ({})", node_id, format!("{:?}", node_type));
+        tracing::info!("Added node: {node_id} ({node_type:?})");
         Ok(node_id)
     }
 
@@ -157,12 +157,7 @@ impl DevAppState {
             connection_type: connection_type.clone(),
         });
 
-        tracing::info!(
-            "Connected nodes: {} -> {} ({})",
-            source_id,
-            target_id,
-            format!("{:?}", connection_type)
-        );
+        tracing::info!("Connected nodes: {source_id} -> {target_id} ({connection_type:?})");
         Ok(())
     }
 
