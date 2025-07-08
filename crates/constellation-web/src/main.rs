@@ -11,23 +11,23 @@ async fn main() -> anyhow::Result<()> {
             tracing_subscriber::fmt::layer()
                 .with_target(false)
                 .with_thread_ids(true)
-                .with_level(true)
+                .with_level(true),
         )
         .init();
 
     tracing::info!("🔧 Starting Constellation Studio Development Server");
     tracing::info!("⚠️  This is a development server without Vulkan dependency");
-    
+
     // Create development application state (no Vulkan required)
     let state = DevAppState::new()?;
-    
+
     // Create the application with all routes
     let app = create_dev_app(state).await;
 
     // Set up the server address
     let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
     let listener = TcpListener::bind(addr).await?;
-    
+
     tracing::info!("🚀 Development Server ready for frontend communication testing");
     tracing::info!("📡 API Server listening on http://{}", addr);
     tracing::info!("🔌 WebSocket endpoint: ws://{}/ws", addr);

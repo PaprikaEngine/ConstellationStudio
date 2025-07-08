@@ -1,13 +1,13 @@
-use constellation_core::*;
-use constellation_nodes::NodeProperties;
 use anyhow::Result;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::Json,
-    routing::{get, post, put, delete},
+    routing::{delete, get, post, put},
     Router,
 };
+use constellation_core::*;
+use constellation_nodes::NodeProperties;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -18,8 +18,8 @@ use tower_http::cors::CorsLayer;
 use uuid::Uuid;
 
 pub mod api;
-pub mod websocket;
 pub mod dev_server;
+pub mod websocket;
 
 // pub use api::*;
 pub use websocket::*;
@@ -33,13 +33,33 @@ pub struct AppState {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EngineEvent {
-    NodeAdded { id: Uuid, node_type: NodeType },
-    NodeRemoved { id: Uuid },
-    NodeConnected { source_id: Uuid, target_id: Uuid, connection_type: ConnectionType },
-    NodeDisconnected { source_id: Uuid, target_id: Uuid },
-    ParameterChanged { node_id: Uuid, parameter: String, value: serde_json::Value },
-    FrameProcessed { timestamp: u64 },
-    Error { message: String },
+    NodeAdded {
+        id: Uuid,
+        node_type: NodeType,
+    },
+    NodeRemoved {
+        id: Uuid,
+    },
+    NodeConnected {
+        source_id: Uuid,
+        target_id: Uuid,
+        connection_type: ConnectionType,
+    },
+    NodeDisconnected {
+        source_id: Uuid,
+        target_id: Uuid,
+    },
+    ParameterChanged {
+        node_id: Uuid,
+        parameter: String,
+        value: serde_json::Value,
+    },
+    FrameProcessed {
+        timestamp: u64,
+    },
+    Error {
+        message: String,
+    },
 }
 
 impl AppState {
@@ -60,63 +80,83 @@ impl AppState {
         // Create a mock engine that doesn't require Vulkan initialization
         // This is temporary for development and communication testing
         tracing::warn!("Using mock engine without Vulkan for development");
-        
+
         // For now, we'll create the engine but handle the Vulkan error gracefully
         match ConstellationEngine::new() {
             Ok(engine) => Ok(engine),
             Err(e) => {
-                tracing::warn!("Vulkan initialization failed (expected in development): {}", e);
+                tracing::warn!(
+                    "Vulkan initialization failed (expected in development): {}",
+                    e
+                );
                 // Return a custom error for now - in a real implementation,
                 // we'd create a mock engine struct
-                Err(anyhow::anyhow!("Mock engine not implemented - Vulkan required"))
+                Err(anyhow::anyhow!(
+                    "Mock engine not implemented - Vulkan required"
+                ))
             }
         }
     }
 
     pub fn add_node(&self, node_type: NodeType, config: NodeConfig) -> Result<Uuid> {
         let node_id = Uuid::new_v4();
-        
+
         // let processor = create_node_processor(node_type.clone(), node_id, config.clone())?;
         // self.node_processors.lock().unwrap().insert(node_id, processor);
-        
+
         let mut engine = self.engine.lock().unwrap();
         engine.add_node(node_type.clone(), config)?;
 
-        let _ = self.event_sender.send(EngineEvent::NodeAdded { id: node_id, node_type });
-        
+        let _ = self.event_sender.send(EngineEvent::NodeAdded {
+            id: node_id,
+            node_type,
+        });
+
         Ok(node_id)
     }
 
     pub fn remove_node(&self, node_id: Uuid) -> Result<()> {
         // self.node_processors.lock().unwrap().remove(&node_id);
-        let _ = self.event_sender.send(EngineEvent::NodeRemoved { id: node_id });
+        let _ = self
+            .event_sender
+            .send(EngineEvent::NodeRemoved { id: node_id });
         Ok(())
     }
 
-    pub fn connect_nodes(&self, source_id: Uuid, target_id: Uuid, connection_type: ConnectionType) -> Result<()> {
+    pub fn connect_nodes(
+        &self,
+        source_id: Uuid,
+        target_id: Uuid,
+        connection_type: ConnectionType,
+    ) -> Result<()> {
         let mut engine = self.engine.lock().unwrap();
         engine.connect_nodes(source_id, target_id, connection_type.clone())?;
-        
-        let _ = self.event_sender.send(EngineEvent::NodeConnected { 
-            source_id, 
-            target_id, 
-            connection_type 
+
+        let _ = self.event_sender.send(EngineEvent::NodeConnected {
+            source_id,
+            target_id,
+            connection_type,
         });
-        
+
         Ok(())
     }
 
-    pub fn set_node_parameter(&self, node_id: Uuid, parameter: String, value: serde_json::Value) -> Result<()> {
+    pub fn set_node_parameter(
+        &self,
+        node_id: Uuid,
+        parameter: String,
+        value: serde_json::Value,
+    ) -> Result<()> {
         // if let Some(processor) = self.node_processors.lock().unwrap().get_mut(&node_id) {
         //     processor.set_parameter(&parameter, value.clone())?;
-            
-            let _ = self.event_sender.send(EngineEvent::ParameterChanged { 
-                node_id, 
-                parameter, 
-                value 
-            });
+
+        let _ = self.event_sender.send(EngineEvent::ParameterChanged {
+            node_id,
+            parameter,
+            value,
+        });
         // }
-        
+
         Ok(())
     }
 
@@ -143,10 +183,16 @@ impl AppState {
 pub async fn create_app(state: AppState) -> Router {
     Router::new()
         .route("/api/nodes", get(get_nodes).post(create_node))
-        .route("/api/nodes/:id", get(get_node).put(update_node).delete(delete_node))
+        .route(
+            "/api/nodes/:id",
+            get(get_node).put(update_node).delete(delete_node),
+        )
         .route("/api/nodes/:id/parameters", put(set_node_parameters))
         .route("/api/connections", post(create_connection))
-        .route("/api/connections/:source_id/:target_id", delete(delete_connection))
+        .route(
+            "/api/connections/:source_id/:target_id",
+            delete(delete_connection),
+        )
         .route("/api/engine/start", post(start_engine))
         .route("/api/engine/stop", post(stop_engine))
         .route("/api/engine/status", get(get_engine_status))
@@ -236,7 +282,11 @@ async fn create_connection(
     State(state): State<AppState>,
     Json(request): Json<CreateConnectionRequest>,
 ) -> Result<Json<()>, StatusCode> {
-    match state.connect_nodes(request.source_id, request.target_id, request.connection_type) {
+    match state.connect_nodes(
+        request.source_id,
+        request.target_id,
+        request.connection_type,
+    ) {
         Ok(_) => Ok(Json(())),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
@@ -259,7 +309,7 @@ async fn stop_engine(State(_state): State<AppState>) -> Json<()> {
 
 async fn get_engine_status(State(state): State<AppState>) -> Json<EngineStatusResponse> {
     let node_count = state.get_all_nodes().len();
-    
+
     Json(EngineStatusResponse {
         running: true,
         fps: 30.0,
@@ -281,13 +331,15 @@ mod tests {
     #[tokio::test]
     async fn test_node_operations() {
         let state = AppState::new().unwrap();
-        
-        let node_id = state.add_node(
-            NodeType::Input(InputType::TestPattern),
-            NodeConfig {
-                parameters: HashMap::new(),
-            },
-        ).unwrap();
+
+        let node_id = state
+            .add_node(
+                NodeType::Input(InputType::TestPattern),
+                NodeConfig {
+                    parameters: HashMap::new(),
+                },
+            )
+            .unwrap();
 
         assert_eq!(state.get_all_nodes().len(), 1);
         assert!(state.get_node_properties(node_id).is_some());

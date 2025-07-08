@@ -6,7 +6,7 @@ use axum::{
     extract::{Path, State, WebSocketUpgrade},
     http::StatusCode,
     response::{Json, Response},
-    routing::{get, post, put, delete},
+    routing::{delete, get, post, put},
     Router,
 };
 use constellation_core::{ConnectionType, NodeConfig, NodeType};
@@ -45,13 +45,33 @@ pub struct DevConnection {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DevEngineEvent {
-    NodeAdded { id: Uuid, node_type: NodeType },
-    NodeRemoved { id: Uuid },
-    NodeConnected { source_id: Uuid, target_id: Uuid, connection_type: ConnectionType },
-    NodeDisconnected { source_id: Uuid, target_id: Uuid },
-    ParameterChanged { node_id: Uuid, parameter: String, value: serde_json::Value },
-    FrameProcessed { timestamp: u64 },
-    Error { message: String },
+    NodeAdded {
+        id: Uuid,
+        node_type: NodeType,
+    },
+    NodeRemoved {
+        id: Uuid,
+    },
+    NodeConnected {
+        source_id: Uuid,
+        target_id: Uuid,
+        connection_type: ConnectionType,
+    },
+    NodeDisconnected {
+        source_id: Uuid,
+        target_id: Uuid,
+    },
+    ParameterChanged {
+        node_id: Uuid,
+        parameter: String,
+        value: serde_json::Value,
+    },
+    FrameProcessed {
+        timestamp: u64,
+    },
+    Error {
+        message: String,
+    },
     EngineStarted,
     EngineStopped,
 }
@@ -84,12 +104,12 @@ impl DevAppState {
         };
 
         self.nodes.lock().unwrap().insert(node_id, node);
-        
-        let _ = self.event_sender.send(DevEngineEvent::NodeAdded { 
-            id: node_id, 
-            node_type: node_type.clone()
+
+        let _ = self.event_sender.send(DevEngineEvent::NodeAdded {
+            id: node_id,
+            node_type: node_type.clone(),
         });
-        
+
         tracing::info!("Added node: {} ({})", node_id, format!("{:?}", node_type));
         Ok(node_id)
     }
@@ -97,17 +117,25 @@ impl DevAppState {
     pub fn remove_node(&self, node_id: Uuid) -> Result<()> {
         if self.nodes.lock().unwrap().remove(&node_id).is_some() {
             // Remove any connections involving this node
-            self.connections.lock().unwrap().retain(|conn| {
-                conn.source_id != node_id && conn.target_id != node_id
-            });
+            self.connections
+                .lock()
+                .unwrap()
+                .retain(|conn| conn.source_id != node_id && conn.target_id != node_id);
 
-            let _ = self.event_sender.send(DevEngineEvent::NodeRemoved { id: node_id });
+            let _ = self
+                .event_sender
+                .send(DevEngineEvent::NodeRemoved { id: node_id });
             tracing::info!("Removed node: {}", node_id);
         }
         Ok(())
     }
 
-    pub fn connect_nodes(&self, source_id: Uuid, target_id: Uuid, connection_type: ConnectionType) -> Result<()> {
+    pub fn connect_nodes(
+        &self,
+        source_id: Uuid,
+        target_id: Uuid,
+        connection_type: ConnectionType,
+    ) -> Result<()> {
         // Check if nodes exist
         let nodes = self.nodes.lock().unwrap();
         if !nodes.contains_key(&source_id) || !nodes.contains_key(&target_id) {
@@ -122,32 +150,51 @@ impl DevAppState {
         };
 
         self.connections.lock().unwrap().push(connection);
-        
-        let _ = self.event_sender.send(DevEngineEvent::NodeConnected { 
-            source_id, 
-            target_id, 
-            connection_type: connection_type.clone() 
+
+        let _ = self.event_sender.send(DevEngineEvent::NodeConnected {
+            source_id,
+            target_id,
+            connection_type: connection_type.clone(),
         });
-        
-        tracing::info!("Connected nodes: {} -> {} ({})", source_id, target_id, format!("{:?}", connection_type));
+
+        tracing::info!(
+            "Connected nodes: {} -> {} ({})",
+            source_id,
+            target_id,
+            format!("{:?}", connection_type)
+        );
         Ok(())
     }
 
-    pub fn set_node_parameter(&self, node_id: Uuid, parameter: String, value: serde_json::Value) -> Result<()> {
+    pub fn set_node_parameter(
+        &self,
+        node_id: Uuid,
+        parameter: String,
+        value: serde_json::Value,
+    ) -> Result<()> {
         // Check if node exists and update its config
         {
             let mut nodes = self.nodes.lock().unwrap();
-            let node = nodes.get_mut(&node_id).ok_or_else(|| anyhow::anyhow!("Node does not exist"))?;
-            node.config.parameters.insert(parameter.clone(), value.clone());
+            let node = nodes
+                .get_mut(&node_id)
+                .ok_or_else(|| anyhow::anyhow!("Node does not exist"))?;
+            node.config
+                .parameters
+                .insert(parameter.clone(), value.clone());
         }
 
-        let _ = self.event_sender.send(DevEngineEvent::ParameterChanged { 
-            node_id, 
-            parameter: parameter.clone(), 
-            value: value.clone() 
+        let _ = self.event_sender.send(DevEngineEvent::ParameterChanged {
+            node_id,
+            parameter: parameter.clone(),
+            value: value.clone(),
         });
-        
-        tracing::info!("Set parameter for node {}: {} = {}", node_id, parameter, value);
+
+        tracing::info!(
+            "Set parameter for node {}: {} = {}",
+            node_id,
+            parameter,
+            value
+        );
         Ok(())
     }
 
@@ -224,13 +271,13 @@ async fn dev_websocket_connection(socket: axum::extract::ws::WebSocket, state: D
     let mut event_receiver = state.event_sender.subscribe();
 
     // Send welcome message
-    let welcome = DevEngineEvent::FrameProcessed { 
+    let welcome = DevEngineEvent::FrameProcessed {
         timestamp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_millis() as u64
+            .as_millis() as u64,
     };
-    
+
     if let Ok(json) = serde_json::to_string(&welcome) {
         let _ = sender.send(Message::Text(json)).await;
     }
@@ -271,7 +318,7 @@ async fn dev_websocket_connection(socket: axum::extract::ws::WebSocket, state: D
         _ = send_task => {},
         _ = recv_task => {},
     }
-    
+
     tracing::info!("WebSocket connection closed");
 }
 
@@ -279,10 +326,18 @@ async fn dev_websocket_connection(socket: axum::extract::ws::WebSocket, state: D
 pub async fn create_dev_app(state: DevAppState) -> Router {
     Router::new()
         .route("/api/nodes", get(dev_get_nodes).post(dev_create_node))
-        .route("/api/nodes/:id", get(dev_get_node).put(dev_update_node).delete(dev_delete_node))
+        .route(
+            "/api/nodes/:id",
+            get(dev_get_node)
+                .put(dev_update_node)
+                .delete(dev_delete_node),
+        )
         .route("/api/nodes/:id/parameters", put(dev_set_node_parameters))
         .route("/api/connections", post(dev_create_connection))
-        .route("/api/connections/:source_id/:target_id", delete(dev_delete_connection))
+        .route(
+            "/api/connections/:source_id/:target_id",
+            delete(dev_delete_connection),
+        )
         .route("/api/engine/start", post(dev_start_engine))
         .route("/api/engine/stop", post(dev_stop_engine))
         .route("/api/engine/status", get(dev_get_engine_status))
@@ -294,7 +349,8 @@ pub async fn create_dev_app(state: DevAppState) -> Router {
 // API handlers
 async fn dev_get_nodes(State(state): State<DevAppState>) -> Json<HashMap<Uuid, String>> {
     let nodes = state.nodes.lock().unwrap();
-    let result = nodes.iter()
+    let result = nodes
+        .iter()
         .map(|(id, node)| (*id, format!("{:?}", node.node_type)))
         .collect();
     Json(result)
@@ -362,7 +418,11 @@ async fn dev_create_connection(
     State(state): State<DevAppState>,
     Json(request): Json<CreateConnectionRequest>,
 ) -> Result<Json<()>, StatusCode> {
-    match state.connect_nodes(request.source_id, request.target_id, request.connection_type) {
+    match state.connect_nodes(
+        request.source_id,
+        request.target_id,
+        request.connection_type,
+    ) {
         Ok(_) => Ok(Json(())),
         Err(e) => {
             tracing::error!("Failed to create connection: {}", e);
