@@ -145,9 +145,9 @@ impl LinuxVirtualWebcam {
 
         // Look for available V4L2 loopback devices
         for i in 0..32 {
-            let device_path = format!("/dev/video{}", i);
+            let device_path = format!("/dev/video{i}");
             if self.is_loopback_device(&device_path)? {
-                tracing::debug!("Found V4L2 loopback device: {}", device_path);
+                tracing::debug!("Found V4L2 loopback device: {device_path}");
                 return Ok(device_path);
             }
         }
@@ -180,7 +180,7 @@ impl LinuxVirtualWebcam {
             .map_err(|_| anyhow!("Invalid device path format: {}", device_path))?;
 
         // Check if device exists and is a loopback device
-        let sys_path = format!("/sys/class/video4linux/video{}/name", device_num);
+        let sys_path = format!("/sys/class/video4linux/video{device_num}/name");
         if let Ok(name) = std::fs::read_to_string(&sys_path) {
             // V4L2 loopback devices typically have "Dummy video device" or custom names
             Ok(name.contains("Dummy")

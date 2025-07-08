@@ -260,7 +260,7 @@ mod tests {
                 }
             }
             Err(e) => {
-                println!("Failed to list camera devices (expected in CI): {}", e);
+                println!("Failed to list camera devices (expected in CI): {e}");
             }
         }
     }

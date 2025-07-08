@@ -215,7 +215,7 @@ mod tests {
             let elapsed = start_time.elapsed();
             let fps = successful_captures as f64 / elapsed.as_secs_f64();
 
-            println!("Capture performance: {:.2} fps", fps);
+            println!("Capture performance: {fps:.2} fps");
             // In real implementation, this should be >= 30 fps
             assert!(fps > 0.0);
         }

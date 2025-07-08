@@ -53,7 +53,7 @@ mod tests {
         // This test may fail in CI environments without cameras
         match result {
             Ok(_) => println!("Platform camera created successfully"),
-            Err(e) => println!("Failed to create platform camera (expected in CI): {}", e),
+            Err(e) => println!("Failed to create platform camera (expected in CI): {e}"),
         }
     }
 
