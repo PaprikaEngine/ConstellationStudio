@@ -1,7 +1,7 @@
 //! Constellation Studio - Node Implementation Crate
-//! 
+//!
 //! This crate contains all node implementations for the constellation pipeline.
-//! During development, many fields and functions may not be used yet but are 
+//! During development, many fields and functions may not be used yet but are
 //! planned for future implementation phases.
 
 #![allow(dead_code)]

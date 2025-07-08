@@ -79,7 +79,7 @@ fn test_window_capture_node_integration() {
 fn test_capture_processing_flow() {
     // This test verifies the basic processing flow works
     // In CI environments or headless systems, this will be skipped
-    
+
     // Skip in CI environments where hardware access is limited
     if std::env::var("CI").is_ok() {
         println!("Skipping capture test in CI environment");
