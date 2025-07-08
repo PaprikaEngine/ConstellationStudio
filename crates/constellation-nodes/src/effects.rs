@@ -212,8 +212,8 @@ impl ColorCorrectionNode {
         b: f32,
         brightness: f32,
         contrast: f32,
-        saturation: f32,
-        hue: f32,
+        _saturation: f32,
+        _hue: f32,
     ) -> (f32, f32, f32) {
         let r_adj = ((r - 0.5) * contrast + 0.5) * brightness;
         let g_adj = ((g - 0.5) * contrast + 0.5) * brightness;

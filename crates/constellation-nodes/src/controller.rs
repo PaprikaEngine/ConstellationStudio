@@ -418,7 +418,7 @@ impl NodeProcessor for AnimationControllerNode {
             self.update_time(delta_time);
         }
 
-        let control_data = if let Some(value) = self.interpolate_value_at_time(self.current_time) {
+        let control_data = if let Some(_value) = self.interpolate_value_at_time(self.current_time) {
             Some(ControlData::Animation {
                 keyframes: self.keyframes.clone(),
                 time: self.current_time,

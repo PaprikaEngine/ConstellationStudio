@@ -8,10 +8,10 @@ use std::ptr;
 
 // X11 bindings
 use x11::xlib::{
-    AllPlanes, AnyPropertyType, Display, Window, XCloseDisplay, XDefaultRootWindow, XDefaultScreen,
-    XDestroyImage, XDisplayHeight, XDisplayWidth, XFetchName, XFree, XFreeStringList, XGetImage,
+    Display, Window, XCloseDisplay, XDefaultRootWindow, XDefaultScreen, XDestroyImage,
+    XDisplayHeight, XDisplayWidth, XFetchName, XFree, XFreeStringList, XGetImage,
     XGetWindowAttributes, XGetWindowProperty, XImage, XOpenDisplay, XQueryTree, XTextProperty,
-    XWindowAttributes, Xutf8TextPropertyToTextList, ZPixmap, XA_WM_NAME,
+    XWindowAttributes, Xutf8TextPropertyToTextList, ZPixmap,
 };
 
 pub struct LinuxScreenCapture {
