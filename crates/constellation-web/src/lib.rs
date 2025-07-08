@@ -271,7 +271,7 @@ async fn set_node_parameters(
     Json(request): Json<SetParametersRequest>,
 ) -> Result<Json<()>, StatusCode> {
     for (parameter, value) in request.parameters {
-        if let Err(_) = state.set_node_parameter(id, parameter, value) {
+        if state.set_node_parameter(id, parameter, value).is_err() {
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     }

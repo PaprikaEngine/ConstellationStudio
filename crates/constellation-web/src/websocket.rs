@@ -1,4 +1,4 @@
-use crate::{AppState, EngineEvent};
+use crate::AppState;
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
@@ -7,7 +7,6 @@ use axum::{
     response::Response,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
-use tokio::sync::broadcast;
 
 pub async fn websocket_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
     ws.on_upgrade(|socket| websocket_connection(socket, state))
