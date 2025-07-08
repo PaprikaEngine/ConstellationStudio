@@ -153,10 +153,7 @@ fn test_virtual_webcam_frame_processing() -> Result<()> {
         }
         Err(e) => {
             // Expected failure in CI environment without proper drivers
-            println!(
-                "Virtual webcam initialization failed (expected in CI): {}",
-                e
-            );
+            println!("Virtual webcam initialization failed (expected in CI): {e}");
         }
     }
 
