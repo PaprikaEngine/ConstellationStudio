@@ -435,6 +435,7 @@ pub enum TallyType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[allow(clippy::enum_variant_names)]
 pub enum ControlType {
     ParameterController,
     AnimationController,
