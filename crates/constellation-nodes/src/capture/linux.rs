@@ -3,15 +3,13 @@ use super::{ScreenCaptureBackend, WindowCaptureBackend, WindowInfo};
 use anyhow::Result;
 use constellation_core::{VideoFormat, VideoFrame};
 
-use std::ffi::CString;
 use std::ptr;
 
 // X11 bindings
 use x11::xlib::{
     AllPlanes, Display, Window, XCloseDisplay, XDefaultRootWindow, XDefaultScreen, XDestroyImage,
-    XDisplayHeight, XDisplayWidth, XFetchName, XFree, XFreeStringList, XGetImage,
-    XGetWindowAttributes, XGetWindowProperty, XImage, XOpenDisplay, XQueryTree, XTextProperty,
-    XWindowAttributes, Xutf8TextPropertyToTextList, ZPixmap,
+    XDisplayHeight, XDisplayWidth, XFetchName, XFree, XGetImage, XGetWindowAttributes, XImage,
+    XOpenDisplay, XQueryTree, XWindowAttributes, ZPixmap,
 };
 
 pub struct LinuxScreenCapture {
