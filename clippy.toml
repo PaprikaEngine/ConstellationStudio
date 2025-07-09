@@ -1,0 +1,14 @@
+# Clippy configuration for ConstellationStudio
+# Allow certain warnings that are common during development
+
+# Allow dead code warnings - common during development phase
+avoid-breaking-exported-api = false
+
+# Allow module inception warnings
+enum-variant-name-threshold = 3
+
+# Allow too many arguments - some GPU functions need many parameters 
+too-many-arguments-threshold = 8
+
+# Allow complex types for GPU programming
+type-complexity-threshold = 500

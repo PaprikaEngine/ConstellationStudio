@@ -9,6 +9,18 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Dark theme styles */
+body.theme-dark {
+  background: #1a202c;
+  color: #f7fafc;
+}
+
+body.theme-light {
+  background: #ffffff;
+  color: #2c3e50;
 }
 
 .App {
@@ -18,33 +30,58 @@ body {
 
 /* Custom styles for React Flow */
 .react-flow {
-  background: #fafafa;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.theme-dark .react-flow {
+  background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
 }
 
 .react-flow__node-constellation {
   background: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #d1d9e0;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-dark .react-flow__node-constellation {
+  background: #2d3748;
+  border: 1px solid #4a5568;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .react-flow__node-constellation.selected {
   border-color: #2196f3;
-  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+  box-shadow: 0 8px 24px rgba(33, 150, 243, 0.3);
+  transform: scale(1.02);
+}
+
+.theme-dark .react-flow__node-constellation.selected {
+  border-color: #667eea;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
 }
 
 .react-flow__edge-constellation {
   stroke-width: 2;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2));
 }
 
 .react-flow__edge-constellation.selected {
   stroke-width: 3;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
 }
 
 /* Handle styles */
 .react-flow__handle {
   border: 2px solid #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.2);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
 }
 
 .react-flow__handle-top,
@@ -61,8 +98,16 @@ body {
 
 /* Minimap styles */
 .react-flow__minimap {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background: #ffffff;
+  border: 2px solid #e0e6ed;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.theme-dark .react-flow__minimap {
+  background: #2d3748;
+  border: 2px solid #4a5568;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .react-flow__minimap-mask {
@@ -74,24 +119,50 @@ body {
 /* Controls styles */
 .react-flow__controls {
   background: #ffffff;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 2px solid #e0e6ed;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.theme-dark .react-flow__controls {
+  background: #2d3748;
+  border: 2px solid #4a5568;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .react-flow__controls-button {
   background: #ffffff;
   border: none;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid #e0e6ed;
   color: #495057;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-dark .react-flow__controls-button {
+  background: #2d3748;
+  border-bottom: 1px solid #4a5568;
+  color: #cbd5e0;
 }
 
 .react-flow__controls-button:hover {
-  background: #f8f9fa;
-  color: #2196f3;
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  color: #1565c0;
+  transform: translateY(-1px);
+}
+
+.theme-dark .react-flow__controls-button:hover {
+  background: linear-gradient(135deg, #4a5568 0%, #667eea 100%);
+  color: #f7fafc;
 }
 
 .react-flow__controls-button:last-child {
   border-bottom: none;
+}
+
+.react-flow__controls-button:active {
+  transform: translateY(0);
+  background: #e0e6ed;
 }

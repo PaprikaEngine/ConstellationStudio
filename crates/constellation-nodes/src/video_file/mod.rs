@@ -325,7 +325,7 @@ mod tests {
 
     fn create_test_file(name: &str, extension: &str) -> Result<PathBuf> {
         let mut path = std::env::temp_dir();
-        path.push(format!("{}.{}", name, extension));
+        path.push(format!("{name}.{extension}"));
 
         // Create a dummy file
         let mut file = File::create(&path)?;

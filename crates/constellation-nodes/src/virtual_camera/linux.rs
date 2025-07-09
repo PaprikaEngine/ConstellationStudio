@@ -89,13 +89,15 @@ impl VirtualWebcamBackend for LinuxVirtualWebcam {
             return Err(anyhow!("Virtual webcam is not active"));
         }
 
+        // Convert frame to V4L2 format first (while device_file is not borrowed)
+        let converted_frame = self.convert_frame_for_v4l2(frame)?;
+
+        // Then get mutable reference to device_file and write
         let device_file = self
             .device_file
             .as_mut()
             .ok_or_else(|| anyhow!("Device file not opened"))?;
 
-        // Convert frame to V4L2 format and write to device
-        let converted_frame = self.convert_frame_for_v4l2(frame)?;
         device_file.write_all(&converted_frame)?;
         device_file.flush()?;
 
@@ -145,9 +147,9 @@ impl LinuxVirtualWebcam {
 
         // Look for available V4L2 loopback devices
         for i in 0..32 {
-            let device_path = format!("/dev/video{}", i);
+            let device_path = format!("/dev/video{i}");
             if self.is_loopback_device(&device_path)? {
-                tracing::debug!("Found V4L2 loopback device: {}", device_path);
+                tracing::debug!("Found V4L2 loopback device: {device_path}");
                 return Ok(device_path);
             }
         }
@@ -180,7 +182,7 @@ impl LinuxVirtualWebcam {
             .map_err(|_| anyhow!("Invalid device path format: {}", device_path))?;
 
         // Check if device exists and is a loopback device
-        let sys_path = format!("/sys/class/video4linux/video{}/name", device_num);
+        let sys_path = format!("/sys/class/video4linux/video{device_num}/name");
         if let Ok(name) = std::fs::read_to_string(&sys_path) {
             // V4L2 loopback devices typically have "Dummy video device" or custom names
             Ok(name.contains("Dummy")
@@ -243,12 +245,7 @@ impl LinuxVirtualWebcam {
 
         // Set frame rate
         let fps_cmd = Command::new("v4l2-ctl")
-            .args(&[
-                "--device",
-                device_path,
-                "--set-parm",
-                &format!("{}", self.fps),
-            ])
+            .args(&["--device", device_path, "--set-parm", &self.fps.to_string()])
             .output();
 
         match fps_cmd {

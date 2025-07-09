@@ -3,6 +3,10 @@ name = "constellation-nodes"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+test-capture-backends = []
+
 [dependencies]
 constellation-core = { path = "../constellation-core" }
 constellation-vulkan = { path = "../constellation-vulkan" }

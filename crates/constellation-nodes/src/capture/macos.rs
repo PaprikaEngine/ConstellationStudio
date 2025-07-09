@@ -42,11 +42,8 @@ impl ScreenCaptureBackend for MacOSScreenCapture {
 
     fn capture_frame(&mut self) -> Result<VideoFrame> {
         let cg_display = unsafe {
-            if self.display_id == 0 {
-                CGMainDisplayID()
-            } else {
-                CGMainDisplayID() // TODO: Support multiple displays
-            }
+            // TODO: Support multiple displays
+            CGMainDisplayID()
         };
 
         // Create a screenshot using CGDisplayCreateImage
@@ -74,11 +71,8 @@ impl ScreenCaptureBackend for MacOSScreenCapture {
 
     fn get_display_bounds(&self, display_id: u32) -> Result<(u32, u32, u32, u32)> {
         let cg_display = unsafe {
-            if display_id == 0 {
-                CGMainDisplayID()
-            } else {
-                CGMainDisplayID() // TODO: Support multiple displays
-            }
+            // TODO: Support multiple displays
+            CGMainDisplayID()
         };
 
         let bounds = unsafe { CGDisplayBounds(cg_display) };

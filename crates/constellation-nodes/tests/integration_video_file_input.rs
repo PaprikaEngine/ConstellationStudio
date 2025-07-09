@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 fn create_test_video_file(name: &str, extension: &str) -> PathBuf {
     let mut path = std::env::temp_dir();
-    path.push(format!("{}.{}", name, extension));
+    path.push(format!("{name}.{extension}"));
 
     // Create a dummy video file
     let mut file = File::create(&path).unwrap();
@@ -371,7 +371,7 @@ fn test_video_file_reader_loop_playback() {
             println!("Video file reader working correctly with loop enabled");
         }
         Err(e) => {
-            println!("Video file reading failed (expected in CI): {}", e);
+            println!("Video file reading failed (expected in CI): {e}");
         }
     }
 

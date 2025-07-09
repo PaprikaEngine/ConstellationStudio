@@ -115,7 +115,8 @@ impl MacOSVirtualWebcam {
         tracing::debug!("Creating Core Media I/O virtual device");
 
         // Placeholder: Generate a unique device identifier
-        let device_id = format!("constellation-{}", uuid::Uuid::new_v4());
+        let uuid = uuid::Uuid::new_v4();
+        let device_id = format!("constellation-{uuid}");
         self.device_id = Some(device_id);
 
         Ok(())

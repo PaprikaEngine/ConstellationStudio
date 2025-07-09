@@ -3,15 +3,13 @@ use super::{ScreenCaptureBackend, WindowCaptureBackend, WindowInfo};
 use anyhow::Result;
 use constellation_core::{VideoFormat, VideoFrame};
 
-use std::ffi::CString;
 use std::ptr;
 
 // X11 bindings
 use x11::xlib::{
-    AllPlanes, AnyPropertyType, Display, Window, XCloseDisplay, XDefaultRootWindow, XDefaultScreen,
-    XDestroyImage, XDisplayHeight, XDisplayWidth, XFetchName, XFree, XFreeStringList, XGetImage,
-    XGetWindowAttributes, XGetWindowProperty, XImage, XOpenDisplay, XQueryTree, XTextProperty,
-    XWindowAttributes, Xutf8TextPropertyToTextList, ZPixmap, XA_WM_NAME,
+    AllPlanes, Display, Window, XCloseDisplay, XDefaultRootWindow, XDefaultScreen, XDestroyImage,
+    XDisplayHeight, XDisplayWidth, XFetchName, XFree, XGetImage, XGetWindowAttributes, XImage,
+    XOpenDisplay, XQueryTree, XWindowAttributes, ZPixmap,
 };
 
 pub struct LinuxScreenCapture {
@@ -22,6 +20,13 @@ pub struct LinuxScreenCapture {
     display: *mut Display,
     root_window: Window,
 }
+
+// SAFETY: LinuxScreenCapture is Send + Sync because:
+// - X11 Display connections are thread-safe when used properly
+// - Each instance manages its own display connection
+// - Raw pointers are only used within X11 API calls which are internally synchronized
+unsafe impl Send for LinuxScreenCapture {}
+unsafe impl Sync for LinuxScreenCapture {}
 
 impl ScreenCaptureBackend for LinuxScreenCapture {
     fn new(display_id: u32, capture_cursor: bool) -> Result<Self> {
@@ -155,6 +160,13 @@ pub struct LinuxWindowCapture {
     height: u32,
     display: *mut Display,
 }
+
+// SAFETY: LinuxWindowCapture is Send + Sync because:
+// - X11 Display connections are thread-safe when used properly
+// - Each instance manages its own display connection
+// - Raw pointers are only used within X11 API calls which are internally synchronized
+unsafe impl Send for LinuxWindowCapture {}
+unsafe impl Sync for LinuxWindowCapture {}
 
 impl WindowCaptureBackend for LinuxWindowCapture {
     fn new(window_id: u64) -> Result<Self> {

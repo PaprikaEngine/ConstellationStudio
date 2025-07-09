@@ -1,12 +1,13 @@
-export interface NodeType {
-  Input: 'Camera' | 'ScreenCapture' | 'WindowCapture' | 'VideoFile' | 'TestPattern';
-  Output: 'VirtualWebcam' | 'Preview';
-  Effect: 'ColorCorrection' | 'Blur' | 'Sharpen' | 'Transform' | 'Composite';
-  Audio: 'Input' | 'Mixer' | 'Effect' | 'Output';
-  Tally: 'Generator' | 'Monitor' | 'Logic' | 'Router';
-}
+export type NodeType = 
+  | { Input: 'Camera' | 'ScreenCapture' | 'WindowCapture' | 'VideoFile' | 'TestPattern' }
+  | { Output: 'VirtualWebcam' | 'Preview' | 'Viewer' }
+  | { Effect: 'ColorCorrection' | 'Blur' | 'Sharpen' | 'Transform' | 'Composite' }
+  | { Audio: 'Input' | 'Mixer' | 'Effect' | 'Output' }
+  | { Control: 'ParameterController' | 'AnimationController' | 'MidiController' | 'OscController' }
+  | { Tally: 'Generator' | 'Monitor' | 'Logic' | 'Router' };
 
-export type ConnectionType = 'Video' | 'Audio' | 'Tally';
+// Updated to match Issue #12 new connection system
+export type ConnectionType = 'RenderData' | 'Audio' | 'Control' | 'Tally';
 
 export interface NodeConfig {
   parameters: Record<string, any>;

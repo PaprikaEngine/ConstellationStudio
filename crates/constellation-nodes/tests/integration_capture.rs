@@ -74,11 +74,17 @@ fn test_window_capture_node_integration() {
     );
 }
 
-#[cfg(not(any(feature = "ci", target_env = "ci")))] // Skip actual capture tests in CI
+// Skip actual capture tests in CI environments - use runtime detection instead
 #[test]
 fn test_capture_processing_flow() {
     // This test verifies the basic processing flow works
     // In CI environments or headless systems, this will be skipped
+
+    // Skip in CI environments where hardware access is limited
+    if std::env::var("CI").is_ok() {
+        println!("Skipping capture test in CI environment");
+        return;
+    }
 
     let node_id = Uuid::new_v4();
     let mut config = NodeConfig {
@@ -123,8 +129,7 @@ fn test_capture_processing_flow() {
         }
         Err(e) => {
             // If it fails, it should be due to missing display hardware or permissions
-            let error_msg = format!("{}", e);
-            println!("Capture test skipped due to environment: {}", error_msg);
+            println!("Capture test skipped due to environment: {e}");
             // This is acceptable in CI/headless environments
         }
     }

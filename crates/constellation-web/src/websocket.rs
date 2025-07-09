@@ -1,4 +1,4 @@
-use crate::{AppState, EngineEvent};
+use crate::AppState;
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
@@ -7,12 +7,8 @@ use axum::{
     response::Response,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
-use tokio::sync::broadcast;
 
-pub async fn websocket_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> Response {
+pub async fn websocket_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
     ws.on_upgrade(|socket| websocket_connection(socket, state))
 }
 
@@ -37,8 +33,7 @@ async fn websocket_connection(socket: WebSocket, state: AppState) {
         while let Some(msg) = receiver.next().await {
             if let Ok(msg) = msg {
                 match msg {
-                    Message::Text(_text) => {
-                    }
+                    Message::Text(_text) => {}
                     Message::Close(_) => {
                         break;
                     }

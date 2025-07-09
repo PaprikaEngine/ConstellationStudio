@@ -612,7 +612,7 @@ impl TestPatternNode {
 
         let color = self
             .get_parameter("color")
-            .and_then(|v| v.as_array().map(|arr| arr.clone()))
+            .and_then(|v| v.as_array().cloned())
             .unwrap_or_else(|| {
                 vec![
                     Value::from(1.0),
@@ -622,7 +622,7 @@ impl TestPatternNode {
                 ]
             });
 
-        let r = (color.get(0).and_then(|v| v.as_f64()).unwrap_or(1.0) * 255.0) as u8;
+        let r = (color.first().and_then(|v| v.as_f64()).unwrap_or(1.0) * 255.0) as u8;
         let g = (color.get(1).and_then(|v| v.as_f64()).unwrap_or(1.0) * 255.0) as u8;
         let b = (color.get(2).and_then(|v| v.as_f64()).unwrap_or(1.0) * 255.0) as u8;
         let a = (color.get(3).and_then(|v| v.as_f64()).unwrap_or(1.0) * 255.0) as u8;

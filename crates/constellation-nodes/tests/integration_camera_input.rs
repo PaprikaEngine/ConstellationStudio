@@ -202,7 +202,7 @@ fn test_camera_capture_device_enumeration() {
             }
         }
         Err(e) => {
-            println!("Camera enumeration failed (expected in CI): {}", e);
+            println!("Camera enumeration failed (expected in CI): {e}");
             // This is acceptable in CI environments
         }
     }
@@ -229,12 +229,14 @@ fn test_camera_capture_creation_and_lifecycle() {
                     let frame_result = capture.capture_frame();
                     match frame_result {
                         Ok(frame) => {
-                            println!("Frame captured: {}x{}", frame.width, frame.height);
+                            let width = frame.width;
+                            let height = frame.height;
+                            println!("Frame captured: {width}x{height}");
                             assert!(frame.width > 0);
                             assert!(frame.height > 0);
                             assert!(!frame.data.is_empty());
                         }
-                        Err(e) => println!("Frame capture failed: {}", e),
+                        Err(e) => println!("Frame capture failed: {e}"),
                     }
 
                     // Test stop capture
@@ -243,12 +245,12 @@ fn test_camera_capture_creation_and_lifecycle() {
                     assert!(!capture.is_running());
                 }
                 Err(e) => {
-                    println!("Camera start failed (expected in CI): {}", e);
+                    println!("Camera start failed (expected in CI): {e}");
                 }
             }
         }
         Err(e) => {
-            println!("Camera creation failed (expected in CI): {}", e);
+            println!("Camera creation failed (expected in CI): {e}");
         }
     }
 }

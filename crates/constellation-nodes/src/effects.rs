@@ -196,7 +196,7 @@ impl ColorCorrectionNode {
                 let b = frame.data[pixel_offset + 2] as f32 / 255.0;
 
                 let (r_adj, g_adj, b_adj) =
-                    self.adjust_pixel(r, g, b, brightness, contrast, saturation, hue);
+                    self.adjust_pixel((r, g, b), brightness, contrast, saturation, hue);
 
                 frame.data[pixel_offset] = (r_adj * 255.0).clamp(0.0, 255.0) as u8;
                 frame.data[pixel_offset + 1] = (g_adj * 255.0).clamp(0.0, 255.0) as u8;
@@ -207,14 +207,13 @@ impl ColorCorrectionNode {
 
     fn adjust_pixel(
         &self,
-        r: f32,
-        g: f32,
-        b: f32,
+        rgb: (f32, f32, f32),
         brightness: f32,
         contrast: f32,
-        saturation: f32,
-        hue: f32,
+        _saturation: f32,
+        _hue: f32,
     ) -> (f32, f32, f32) {
+        let (r, g, b) = rgb;
         let r_adj = ((r - 0.5) * contrast + 0.5) * brightness;
         let g_adj = ((g - 0.5) * contrast + 0.5) * brightness;
         let b_adj = ((b - 0.5) * contrast + 0.5) * brightness;

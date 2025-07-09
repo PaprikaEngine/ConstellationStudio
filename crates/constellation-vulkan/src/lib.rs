@@ -5,6 +5,7 @@ use std::collections::VecDeque;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum VulkanError {
     #[error("Vulkan initialization failed: {0}")]
     InitializationFailed(String),

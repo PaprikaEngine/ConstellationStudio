@@ -53,7 +53,7 @@ mod tests {
         // This test may fail in CI environments without cameras
         match result {
             Ok(_) => println!("Platform camera created successfully"),
-            Err(e) => println!("Failed to create platform camera (expected in CI): {}", e),
+            Err(e) => println!("Failed to create platform camera (expected in CI): {e}"),
         }
     }
 
@@ -63,16 +63,16 @@ mod tests {
 
         match result {
             Ok(devices) => {
-                println!("Found {} platform camera devices", devices.len());
+                let device_count = devices.len();
+                println!("Found {device_count} platform camera devices");
                 for device in devices {
-                    println!("  Device {}: {}", device.index, device.name);
+                    let index = device.index;
+                    let name = &device.name;
+                    println!("  Device {index}: {name}");
                 }
             }
             Err(e) => {
-                println!(
-                    "Failed to list platform camera devices (expected in CI): {}",
-                    e
-                );
+                println!("Failed to list platform camera devices (expected in CI): {e}");
             }
         }
     }
