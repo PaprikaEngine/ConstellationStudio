@@ -1,5 +1,5 @@
 import React from 'react';
-import { Monitor, Mic, Camera, FileVideo, TestTube, Tv, Eye, Palette, Sparkles, Move, Layers, Settings, Play, Gamepad2, Wifi, Zap, Radio, Activity, GitBranch, Shuffle } from 'lucide-react';
+import { Monitor, Mic, Camera, FileVideo, TestTube, Tv, Eye, Palette, Sparkles, Move, Layers, Settings, Play, Gamepad2, Wifi, Zap, Radio, Activity, GitBranch, Shuffle, Calculator, Clock, TrendingUp } from 'lucide-react';
 import { useTheme, getThemeColors, getThemeStyles } from '../contexts/ThemeContext';
 
 interface NodePaletteItem {
@@ -36,10 +36,13 @@ const nodeItems: NodePaletteItem[] = [
   { type: 'audio-Output', label: 'Audio Output', icon: <Mic size={16} />, category: 'Audio' },
   
   // Control Nodes
-  { type: 'control-ParameterController', label: 'Parameter Controller', icon: <Settings size={16} />, category: 'Control' },
-  { type: 'control-AnimationController', label: 'Animation Controller', icon: <Play size={16} />, category: 'Control' },
+  { type: 'control-LFO', label: 'LFO Controller', icon: <TrendingUp size={16} />, category: 'Control' },
+  { type: 'control-Timeline', label: 'Timeline Controller', icon: <Clock size={16} />, category: 'Control' },
+  { type: 'control-MathController', label: 'Math Controller', icon: <Calculator size={16} />, category: 'Control' },
   { type: 'control-MidiController', label: 'MIDI Controller', icon: <Gamepad2 size={16} />, category: 'Control' },
   { type: 'control-OscController', label: 'OSC Controller', icon: <Wifi size={16} />, category: 'Control' },
+  { type: 'control-ParameterController', label: 'Parameter Controller', icon: <Settings size={16} />, category: 'Control' },
+  { type: 'control-AnimationController', label: 'Animation Controller', icon: <Play size={16} />, category: 'Control' },
   
   // Tally Nodes
   { type: 'tally-Generator', label: 'Tally Generator', icon: <Radio size={16} />, category: 'Tally' },

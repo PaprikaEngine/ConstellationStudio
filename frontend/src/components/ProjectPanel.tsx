@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Save, FolderOpen, Download, Upload, FileText, AlertCircle, CheckCircle, Copy, Trash2, X } from 'lucide-react';
+import { Save, FolderOpen, Download, Upload, FileText, Copy, Trash2, X } from 'lucide-react';
 import { useTheme, getThemeColors, getThemeStyles } from '../contexts/ThemeContext';
 import { useNodeStore } from '../stores/useNodeStore';
 import { ProjectManager } from '../utils/projectManager';
-import { ProjectConfiguration, ProjectSaveOptions } from '../types/project';
+import { ProjectSaveOptions } from '../types/project';
 import { useNotifications } from './NotificationSystem';
 
 interface ProjectPanelProps {

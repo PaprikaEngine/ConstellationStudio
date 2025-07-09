@@ -32,7 +32,6 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ onNodeSelect }) => {
     onNodesChange,
     onEdgesChange,
     onConnect,
-    setViewport,
   } = useNodeStore();
   
   const { isDark } = useTheme();
@@ -120,7 +119,6 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ onNodeSelect }) => {
             onSelectionChange={onSelectionChange}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            onViewportChange={(viewport) => setViewport(viewport)}
             fitView
           >
             <Background color={colors.canvasDot} gap={20} size={2} />

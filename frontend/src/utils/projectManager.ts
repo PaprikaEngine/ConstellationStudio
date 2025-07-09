@@ -2,7 +2,6 @@
 
 import { Node, Edge, Viewport } from 'reactflow';
 import { ProjectConfiguration, ProjectNode, ProjectEdge, ProjectSaveOptions, ProjectLoadResult } from '../types/project';
-import { NodeType } from '../types';
 
 const PROJECT_VERSION = '1.0.0';
 

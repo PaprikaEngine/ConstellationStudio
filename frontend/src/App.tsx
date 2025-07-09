@@ -5,7 +5,7 @@ import { ParameterPanel } from './components/ParameterPanel';
 import { NotificationSystem, useNotifications } from './components/NotificationSystem';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ProjectPanel } from './components/ProjectPanel';
-import { ThemeProvider, useTheme, getThemeColors, getThemeStyles } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme, getThemeStyles } from './contexts/ThemeContext';
 import { useNodeStore } from './stores/useNodeStore';
 import './App.css';
 
@@ -13,7 +13,6 @@ const queryClient = new QueryClient();
 
 function AppContent() {
   const { isDark } = useTheme();
-  const colors = getThemeColors(isDark);
   const styles = getThemeStyles(isDark);
   const { 
     isConnected, 

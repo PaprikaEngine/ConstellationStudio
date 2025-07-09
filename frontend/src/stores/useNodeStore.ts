@@ -355,7 +355,19 @@ function getNodeLabel(nodeType: NodeType): string {
   if ('Output' in nodeType) return `${nodeType.Output} Output`;
   if ('Effect' in nodeType) return `${nodeType.Effect} Effect`;
   if ('Audio' in nodeType) return `${nodeType.Audio} Audio`;
-  if ('Control' in nodeType) return `${nodeType.Control} Control`;
+  if ('Control' in nodeType) {
+    const controlType = nodeType.Control;
+    switch (controlType) {
+      case 'LFO': return 'LFO Controller';
+      case 'Timeline': return 'Timeline Controller';
+      case 'MathController': return 'Math Controller';
+      case 'MidiController': return 'MIDI Controller';
+      case 'OscController': return 'OSC Controller';
+      case 'ParameterController': return 'Parameter Controller';
+      case 'AnimationController': return 'Animation Controller';
+      default: return `${controlType} Control`;
+    }
+  }
   if ('Tally' in nodeType) return `${nodeType.Tally} Tally`;
   return 'Unknown Node';
 }
@@ -365,7 +377,19 @@ function getInputTypes(nodeType: NodeType): ConnectionType[] {
   if ('Output' in nodeType) return ['RenderData', 'Audio'];
   if ('Effect' in nodeType) return ['RenderData'];
   if ('Audio' in nodeType) return ['Audio'];
-  if ('Control' in nodeType) return [];
+  if ('Control' in nodeType) {
+    const controlType = nodeType.Control;
+    switch (controlType) {
+      case 'LFO': return []; // LFO generates signals, no input
+      case 'Timeline': return []; // Timeline generates signals, no input
+      case 'MathController': return ['Control']; // Math controller can take control inputs
+      case 'MidiController': return []; // MIDI controller generates signals
+      case 'OscController': return []; // OSC controller generates signals
+      case 'ParameterController': return ['Control']; // Parameter controller can take control inputs
+      case 'AnimationController': return ['Control']; // Animation controller can take control inputs
+      default: return [];
+    }
+  }
   if ('Tally' in nodeType) return ['Tally'];
   return [];
 }
