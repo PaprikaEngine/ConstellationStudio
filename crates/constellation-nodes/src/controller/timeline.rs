@@ -13,7 +13,7 @@ pub struct TimelineController {
     config: NodeConfig,
     properties: NodeProperties,
     controller_config: ControllerConfig,
-    
+
     // タイムライン設定
     keyframes: Vec<Keyframe>,
     current_time: f32,
@@ -21,10 +21,10 @@ pub struct TimelineController {
     is_playing: bool,
     loop_enabled: bool,
     playback_speed: f32,
-    
+
     // 現在の値
     current_value: f32,
-    
+
     // 時間管理
     start_time: Instant,
     last_update: Instant,
@@ -33,7 +33,7 @@ pub struct TimelineController {
 impl TimelineController {
     pub fn new(id: Uuid, config: NodeConfig) -> Result<Self> {
         let mut parameters = HashMap::new();
-        
+
         // タイムライン制御パラメータ
         parameters.insert(
             "play".to_string(),
@@ -46,7 +46,7 @@ impl TimelineController {
                 description: "Play/pause timeline".to_string(),
             },
         );
-        
+
         parameters.insert(
             "time".to_string(),
             ParameterDefinition {
@@ -58,7 +58,7 @@ impl TimelineController {
                 description: "Current timeline time in seconds".to_string(),
             },
         );
-        
+
         parameters.insert(
             "duration".to_string(),
             ParameterDefinition {
@@ -70,7 +70,7 @@ impl TimelineController {
                 description: "Timeline duration in seconds".to_string(),
             },
         );
-        
+
         parameters.insert(
             "loop".to_string(),
             ParameterDefinition {
@@ -82,7 +82,7 @@ impl TimelineController {
                 description: "Loop timeline playback".to_string(),
             },
         );
-        
+
         parameters.insert(
             "speed".to_string(),
             ParameterDefinition {
@@ -94,7 +94,7 @@ impl TimelineController {
                 description: "Playback speed multiplier".to_string(),
             },
         );
-        
+
         parameters.insert(
             "enabled".to_string(),
             ParameterDefinition {
@@ -117,7 +117,7 @@ impl TimelineController {
         };
 
         let now = Instant::now();
-        
+
         Ok(Self {
             id,
             config,
@@ -134,32 +134,33 @@ impl TimelineController {
             last_update: now,
         })
     }
-    
+
     /// キーフレームを追加
     pub fn add_keyframe(&mut self, keyframe: Keyframe) {
         self.keyframes.push(keyframe);
         // 時間でソート
-        self.keyframes.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+        self.keyframes
+            .sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
     }
-    
+
     /// キーフレームをクリア
     pub fn clear_keyframes(&mut self) {
         self.keyframes.clear();
     }
-    
+
     /// 指定時間での値を補間
     fn interpolate_value_at_time(&self, time: f32) -> f32 {
         if self.keyframes.is_empty() {
             return 0.0;
         }
-        
+
         // 時間をクランプ
         let clamped_time = time.max(0.0).min(self.duration);
-        
+
         // 周囲のキーフレームを検索
         let mut before_keyframe = None;
         let mut after_keyframe = None;
-        
+
         for keyframe in &self.keyframes {
             if keyframe.time <= clamped_time {
                 before_keyframe = Some(keyframe);
@@ -168,13 +169,13 @@ impl TimelineController {
                 break;
             }
         }
-        
+
         match (before_keyframe, after_keyframe) {
             (Some(before), Some(after)) => {
                 // 2つのキーフレーム間で補間
                 let t = (clamped_time - before.time) / (after.time - before.time);
                 let smooth_t = self.apply_interpolation(t, &before.interpolation);
-                
+
                 match (&before.value, &after.value) {
                     (ParameterValue::Float(f1), ParameterValue::Float(f2)) => {
                         f1 + (f2 - f1) * smooth_t
@@ -199,7 +200,7 @@ impl TimelineController {
             (None, None) => 0.0,
         }
     }
-    
+
     /// 補間カーブを適用
     fn apply_interpolation(&self, t: f32, interpolation: &InterpolationType) -> f32 {
         match interpolation {
@@ -220,17 +221,17 @@ impl TimelineController {
                 let mt = 1.0 - t;
                 let mt2 = mt * mt;
                 let mt3 = mt2 * mt;
-                
+
                 mt3 * p1 + 3.0 * mt2 * t * p2 + 3.0 * mt * t2 * p3 + t3 * p4
             }
         }
     }
-    
+
     /// 時間を更新
     fn update_time(&mut self, delta_time: f32) {
         if self.is_playing {
             self.current_time += delta_time * self.playback_speed;
-            
+
             if self.current_time >= self.duration {
                 if self.loop_enabled {
                     self.current_time = self.current_time % self.duration;
@@ -241,31 +242,36 @@ impl TimelineController {
             }
         }
     }
-    
+
     /// パラメータを更新
     fn update_parameters(&mut self) {
-        self.is_playing = self.get_parameter("play")
+        self.is_playing = self
+            .get_parameter("play")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
-        
-        self.loop_enabled = self.get_parameter("loop")
+
+        self.loop_enabled = self
+            .get_parameter("loop")
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
-        
-        self.playback_speed = self.get_parameter("speed")
+
+        self.playback_speed = self
+            .get_parameter("speed")
             .and_then(|v| v.as_f64())
             .unwrap_or(1.0) as f32;
-        
-        self.duration = self.get_parameter("duration")
+
+        self.duration = self
+            .get_parameter("duration")
             .and_then(|v| v.as_f64())
             .unwrap_or(10.0) as f32;
-        
+
         // 手動時間オーバーライド
         if let Some(manual_time) = self.get_parameter("time").and_then(|v| v.as_f64()) {
             self.current_time = manual_time as f32;
         }
-        
-        self.controller_config.enabled = self.get_parameter("enabled")
+
+        self.controller_config.enabled = self
+            .get_parameter("enabled")
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
     }
@@ -275,23 +281,23 @@ impl NodeProcessor for TimelineController {
     fn process(&mut self, input: FrameData) -> Result<FrameData> {
         // パラメータを更新
         self.update_parameters();
-        
+
         // 無効なら入力をそのまま通す
         if !self.controller_config.enabled {
             return Ok(input);
         }
-        
+
         // 時間を更新
         let now = Instant::now();
         let delta_time = now.duration_since(self.last_update).as_secs_f32();
         self.update_time(delta_time);
-        
+
         // 現在の値を補間
         self.current_value = self.interpolate_value_at_time(self.current_time);
-        
+
         // 制御コマンドを生成
         let control_commands = self.generate_control_commands();
-        
+
         let control_data = if !control_commands.is_empty() {
             Some(ControlData::MultiControl {
                 commands: control_commands,
@@ -299,9 +305,9 @@ impl NodeProcessor for TimelineController {
         } else {
             input.control_data
         };
-        
+
         self.last_update = now;
-        
+
         Ok(FrameData {
             render_data: input.render_data,
             audio_data: input.audio_data,
@@ -328,12 +334,13 @@ impl ControllerNode for TimelineController {
     fn add_mapping(&mut self, mapping: ControlMapping) {
         self.controller_config.mappings.push(mapping);
     }
-    
+
     fn remove_mapping(&mut self, source_parameter: &str) {
-        self.controller_config.mappings
+        self.controller_config
+            .mappings
             .retain(|m| m.source_parameter != source_parameter);
     }
-    
+
     fn get_control_value(&self, parameter: &str) -> Option<f32> {
         match parameter {
             "output" | "value" => Some(self.current_value),
@@ -342,14 +349,14 @@ impl ControllerNode for TimelineController {
             _ => None,
         }
     }
-    
+
     fn generate_control_commands(&self) -> Vec<ControlCommand> {
         let mut control_values = HashMap::new();
         control_values.insert("output".to_string(), self.current_value);
         control_values.insert("value".to_string(), self.current_value);
         control_values.insert("time".to_string(), self.current_time);
         control_values.insert("progress".to_string(), self.current_time / self.duration);
-        
+
         apply_mappings(&self.controller_config.mappings, &control_values)
     }
 }
@@ -364,76 +371,76 @@ mod tests {
         let config = NodeConfig {
             parameters: HashMap::new(),
         };
-        
+
         let controller = TimelineController::new(id, config);
         assert!(controller.is_ok());
-        
+
         let controller = controller.unwrap();
         assert_eq!(controller.id, id);
         assert_eq!(controller.duration, 10.0);
         assert!(!controller.is_playing);
     }
-    
+
     #[test]
     fn test_timeline_keyframe_interpolation() {
         let id = Uuid::new_v4();
         let config = NodeConfig {
             parameters: HashMap::new(),
         };
-        
+
         let mut controller = TimelineController::new(id, config).unwrap();
-        
+
         // キーフレームを追加
         controller.add_keyframe(Keyframe {
             time: 0.0,
             value: ParameterValue::Float(0.0),
             interpolation: InterpolationType::Linear,
         });
-        
+
         controller.add_keyframe(Keyframe {
             time: 5.0,
             value: ParameterValue::Float(1.0),
             interpolation: InterpolationType::Linear,
         });
-        
+
         // 補間をテスト
         assert_eq!(controller.interpolate_value_at_time(0.0), 0.0);
         assert_eq!(controller.interpolate_value_at_time(2.5), 0.5);
         assert_eq!(controller.interpolate_value_at_time(5.0), 1.0);
     }
-    
+
     #[test]
     fn test_timeline_playback() {
         let id = Uuid::new_v4();
         let config = NodeConfig {
             parameters: HashMap::new(),
         };
-        
+
         let mut controller = TimelineController::new(id, config).unwrap();
         controller.is_playing = true;
         controller.duration = 10.0;
-        
+
         // 時間を進める
         controller.update_time(1.0);
         assert_eq!(controller.current_time, 1.0);
-        
+
         controller.update_time(2.0);
         assert_eq!(controller.current_time, 3.0);
     }
-    
+
     #[test]
     fn test_timeline_loop() {
         let id = Uuid::new_v4();
         let config = NodeConfig {
             parameters: HashMap::new(),
         };
-        
+
         let mut controller = TimelineController::new(id, config).unwrap();
         controller.is_playing = true;
         controller.duration = 5.0;
         controller.loop_enabled = true;
         controller.current_time = 4.0;
-        
+
         // ループテスト
         controller.update_time(2.0);
         assert_eq!(controller.current_time, 1.0); // 6.0 % 5.0 = 1.0

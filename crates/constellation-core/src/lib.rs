@@ -267,25 +267,21 @@ pub struct ControlMapping {
     pub target_parameter: String,      // ターゲットパラメータ名
     pub value_range: (f32, f32),       // 入力値範囲
     pub target_range: (f32, f32),      // 出力値範囲
-    pub response_curve: ResponseCurve,  // レスポンスカーブ
+    pub response_curve: ResponseCurve, // レスポンスカーブ
     pub enabled: bool,                 // マッピング有効/無効
 }
 
 #[derive(Debug, Clone)]
 pub enum ResponseCurve {
-    Linear,                    // 線形
-    Exponential(f32),          // 指数カーブ
-    Logarithmic(f32),          // 対数カーブ
-    Sine,                      // サインカーブ
-    Custom(Vec<(f32, f32)>),   // カスタムカーブポイント
+    Linear,                  // 線形
+    Exponential(f32),        // 指数カーブ
+    Logarithmic(f32),        // 対数カーブ
+    Sine,                    // サインカーブ
+    Custom(Vec<(f32, f32)>), // カスタムカーブポイント
 }
 
 impl ControlMapping {
-    pub fn new(
-        source_parameter: String,
-        target_node_id: Uuid,
-        target_parameter: String,
-    ) -> Self {
+    pub fn new(source_parameter: String, target_node_id: Uuid, target_parameter: String) -> Self {
         Self {
             source_parameter,
             target_node_id,
@@ -304,7 +300,8 @@ impl ControlMapping {
         }
 
         // 入力値を0-1範囲に正規化
-        let normalized = (input_value - self.value_range.0) / (self.value_range.1 - self.value_range.0);
+        let normalized =
+            (input_value - self.value_range.0) / (self.value_range.1 - self.value_range.0);
         let normalized = normalized.clamp(0.0, 1.0);
 
         // レスポンスカーブを適用
@@ -330,7 +327,7 @@ impl ControlMapping {
                 if points.is_empty() {
                     return normalized_value;
                 }
-                
+
                 // 線形補間でカスタムカーブを適用
                 let mut prev_point = (0.0, 0.0);
                 for &point in points {
@@ -525,20 +522,20 @@ pub enum TallyType {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[allow(clippy::enum_variant_names)]
 pub enum ControlType {
-    LFO,              // Low Frequency Oscillator
-    Timeline,         // タイムライン・キーフレーム
-    MidiController,   // MIDIコントローラー
-    MathController,   // 数式演算・式制御
-    AudioReactive,    // 音声反応制御
-    GamepadController,// ゲームパッド・ジョイスティック
-    TouchOSC,         // タッチOSC・モバイル制御
-    Envelope,         // ADSR エンベロープ
-    RandomController, // ランダム値生成器
-    LogicController,  // 論理演算・条件制御
-    OSCReceiver,      // OSC受信・外部機器連携
+    LFO,                 // Low Frequency Oscillator
+    Timeline,            // タイムライン・キーフレーム
+    MidiController,      // MIDIコントローラー
+    MathController,      // 数式演算・式制御
+    AudioReactive,       // 音声反応制御
+    GamepadController,   // ゲームパッド・ジョイスティック
+    TouchOSC,            // タッチOSC・モバイル制御
+    Envelope,            // ADSR エンベロープ
+    RandomController,    // ランダム値生成器
+    LogicController,     // 論理演算・条件制御
+    OSCReceiver,         // OSC受信・外部機器連携
     WebSocketController, // WebSocket制御・Web統合
-    APIController,    // REST API制御・クラウド連携
-    VideoAnalysis,    // 映像解析制御・モーション検出
+    APIController,       // REST API制御・クラウド連携
+    VideoAnalysis,       // 映像解析制御・モーション検出
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -24,21 +24,21 @@ pub struct LFOController {
     config: NodeConfig,
     properties: NodeProperties,
     controller_config: ControllerConfig,
-    
+
     // LFO設定
-    frequency: f32,           // 周波数 (Hz)
-    amplitude: f32,           // 振幅 (0.0-1.0)
-    offset: f32,              // DCオフセット
-    waveform: Waveform,       // 波形タイプ
-    phase: f32,               // 位相オフセット (0.0-1.0)
-    
+    frequency: f32,     // 周波数 (Hz)
+    amplitude: f32,     // 振幅 (0.0-1.0)
+    offset: f32,        // DCオフセット
+    waveform: Waveform, // 波形タイプ
+    phase: f32,         // 位相オフセット (0.0-1.0)
+
     // 時間管理
     start_time: Instant,
     last_update: Instant,
-    
+
     // 現在の値
     current_value: f32,
-    
+
     // ランダムノイズ用
     noise_seed: u64,
 }
@@ -46,7 +46,7 @@ pub struct LFOController {
 impl LFOController {
     pub fn new(id: Uuid, config: NodeConfig) -> Result<Self> {
         let mut parameters = HashMap::new();
-        
+
         // 基本LFOパラメータ
         parameters.insert(
             "frequency".to_string(),
@@ -59,7 +59,7 @@ impl LFOController {
                 description: "LFO frequency in Hz".to_string(),
             },
         );
-        
+
         parameters.insert(
             "amplitude".to_string(),
             ParameterDefinition {
@@ -71,7 +71,7 @@ impl LFOController {
                 description: "LFO amplitude".to_string(),
             },
         );
-        
+
         parameters.insert(
             "offset".to_string(),
             ParameterDefinition {
@@ -83,7 +83,7 @@ impl LFOController {
                 description: "DC offset".to_string(),
             },
         );
-        
+
         parameters.insert(
             "waveform".to_string(),
             ParameterDefinition {
@@ -101,7 +101,7 @@ impl LFOController {
                 description: "LFO waveform type".to_string(),
             },
         );
-        
+
         parameters.insert(
             "phase".to_string(),
             ParameterDefinition {
@@ -113,7 +113,7 @@ impl LFOController {
                 description: "Phase offset (0.0-1.0)".to_string(),
             },
         );
-        
+
         parameters.insert(
             "enabled".to_string(),
             ParameterDefinition {
@@ -136,7 +136,7 @@ impl LFOController {
         };
 
         let now = Instant::now();
-        
+
         Ok(Self {
             id,
             config,
@@ -153,12 +153,12 @@ impl LFOController {
             noise_seed: 12345,
         })
     }
-    
+
     /// 現在の時間に基づいてLFO値を計算
     fn calculate_lfo_value(&mut self, elapsed_time: f32) -> f32 {
         // フェーズ調整された時間を計算
         let phase_adjusted_time = elapsed_time + (self.phase * (1.0 / self.frequency));
-        
+
         // 基本波形値を計算
         let base_value = match &self.waveform {
             Waveform::Sine => {
@@ -167,7 +167,11 @@ impl LFOController {
             }
             Waveform::Square => {
                 let phase = (phase_adjusted_time * self.frequency) % 1.0;
-                if phase < 0.5 { 1.0 } else { -1.0 }
+                if phase < 0.5 {
+                    1.0
+                } else {
+                    -1.0
+                }
             }
             Waveform::Triangle => {
                 let phase = (phase_adjusted_time * self.frequency) % 1.0;
@@ -197,32 +201,36 @@ impl LFOController {
                 }
             }
         };
-        
+
         // 振幅とオフセットを適用
         let scaled_value = base_value * self.amplitude + self.offset;
-        
+
         // -1.0から1.0の範囲にクランプ
         scaled_value.clamp(-1.0, 1.0)
     }
-    
+
     /// パラメータを更新
     fn update_parameters(&mut self) {
-        self.frequency = self.get_parameter("frequency")
+        self.frequency = self
+            .get_parameter("frequency")
             .and_then(|v| v.as_f64())
             .unwrap_or(1.0) as f32;
-        
-        self.amplitude = self.get_parameter("amplitude")
+
+        self.amplitude = self
+            .get_parameter("amplitude")
             .and_then(|v| v.as_f64())
             .unwrap_or(1.0) as f32;
-        
-        self.offset = self.get_parameter("offset")
+
+        self.offset = self
+            .get_parameter("offset")
             .and_then(|v| v.as_f64())
             .unwrap_or(0.0) as f32;
-        
-        self.phase = self.get_parameter("phase")
+
+        self.phase = self
+            .get_parameter("phase")
             .and_then(|v| v.as_f64())
             .unwrap_or(0.0) as f32;
-        
+
         // 波形タイプを更新
         if let Some(waveform_value) = self.get_parameter("waveform") {
             if let Some(waveform_str) = waveform_value.as_str() {
@@ -236,9 +244,10 @@ impl LFOController {
                 };
             }
         }
-        
+
         // コントローラ有効状態を更新
-        self.controller_config.enabled = self.get_parameter("enabled")
+        self.controller_config.enabled = self
+            .get_parameter("enabled")
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
     }
@@ -248,22 +257,22 @@ impl NodeProcessor for LFOController {
     fn process(&mut self, input: FrameData) -> Result<FrameData> {
         // パラメータを更新
         self.update_parameters();
-        
+
         // 無効なら入力をそのまま通す
         if !self.controller_config.enabled {
             return Ok(input);
         }
-        
+
         // 経過時間を計算
         let now = Instant::now();
         let elapsed = now.duration_since(self.start_time).as_secs_f32();
-        
+
         // LFO値を計算
         self.current_value = self.calculate_lfo_value(elapsed);
-        
+
         // 制御コマンドを生成
         let control_commands = self.generate_control_commands();
-        
+
         let control_data = if !control_commands.is_empty() {
             Some(ControlData::MultiControl {
                 commands: control_commands,
@@ -271,9 +280,9 @@ impl NodeProcessor for LFOController {
         } else {
             input.control_data
         };
-        
+
         self.last_update = now;
-        
+
         Ok(FrameData {
             render_data: input.render_data,
             audio_data: input.audio_data,
@@ -300,12 +309,13 @@ impl ControllerNode for LFOController {
     fn add_mapping(&mut self, mapping: ControlMapping) {
         self.controller_config.mappings.push(mapping);
     }
-    
+
     fn remove_mapping(&mut self, source_parameter: &str) {
-        self.controller_config.mappings
+        self.controller_config
+            .mappings
             .retain(|m| m.source_parameter != source_parameter);
     }
-    
+
     fn get_control_value(&self, parameter: &str) -> Option<f32> {
         if parameter == "output" || parameter == "lfo" {
             Some(self.current_value)
@@ -313,12 +323,12 @@ impl ControllerNode for LFOController {
             None
         }
     }
-    
+
     fn generate_control_commands(&self) -> Vec<ControlCommand> {
         let mut control_values = HashMap::new();
         control_values.insert("output".to_string(), self.current_value);
         control_values.insert("lfo".to_string(), self.current_value);
-        
+
         apply_mappings(&self.controller_config.mappings, &control_values)
     }
 }
@@ -333,78 +343,78 @@ mod tests {
         let config = NodeConfig {
             parameters: HashMap::new(),
         };
-        
+
         let controller = LFOController::new(id, config);
         assert!(controller.is_ok());
-        
+
         let controller = controller.unwrap();
         assert_eq!(controller.id, id);
         assert_eq!(controller.frequency, 1.0);
         assert_eq!(controller.amplitude, 1.0);
     }
-    
+
     #[test]
     fn test_lfo_sine_waveform() {
         let id = Uuid::new_v4();
         let config = NodeConfig {
             parameters: HashMap::new(),
         };
-        
+
         let mut controller = LFOController::new(id, config).unwrap();
-        
+
         // Test sine wave at different time points
         let value_0 = controller.calculate_lfo_value(0.0);
         let value_quarter = controller.calculate_lfo_value(0.25);
         let value_half = controller.calculate_lfo_value(0.5);
-        
-        assert!((value_0 - 0.0).abs() < 0.01);    // sin(0) = 0
+
+        assert!((value_0 - 0.0).abs() < 0.01); // sin(0) = 0
         assert!((value_quarter - 1.0).abs() < 0.01); // sin(π/2) = 1
-        assert!((value_half - 0.0).abs() < 0.01);     // sin(π) = 0
+        assert!((value_half - 0.0).abs() < 0.01); // sin(π) = 0
     }
-    
+
     #[test]
     fn test_lfo_square_waveform() {
         let id = Uuid::new_v4();
         let config = NodeConfig {
             parameters: HashMap::new(),
         };
-        
+
         let mut controller = LFOController::new(id, config).unwrap();
         controller.waveform = Waveform::Square;
-        
+
         let value_0 = controller.calculate_lfo_value(0.0);
         let value_quarter = controller.calculate_lfo_value(0.25);
         let value_half = controller.calculate_lfo_value(0.5);
-        
-        assert_eq!(value_0, 1.0);   // First half of square wave
+
+        assert_eq!(value_0, 1.0); // First half of square wave
         assert_eq!(value_quarter, 1.0); // Still first half
-        assert_eq!(value_half, -1.0);   // Second half of square wave
+        assert_eq!(value_half, -1.0); // Second half of square wave
     }
-    
+
     #[test]
     fn test_lfo_amplitude_scaling() {
         let id = Uuid::new_v4();
         let config = NodeConfig {
             parameters: HashMap::new(),
         };
-        
+
         let mut controller = LFOController::new(id, config).unwrap();
         controller.amplitude = 0.5;
-        
+
         let value = controller.calculate_lfo_value(0.25); // Should be at peak
         assert!((value - 0.5).abs() < 0.01); // Peak scaled by amplitude
     }
-    
+
     #[test]
     fn test_lfo_offset() {
         let id = Uuid::new_v4();
         let config = NodeConfig {
             parameters: HashMap::new(),
         };
-        
+
         let mut controller = LFOController::new(id, config).unwrap();
         controller.offset = 0.5;
-        
+
         let value = controller.calculate_lfo_value(0.0); // Should be at zero crossing
         assert!((value - 0.5).abs() < 0.01); // Zero crossing + offset
     }

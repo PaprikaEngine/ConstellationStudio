@@ -15,13 +15,13 @@ pub use timeline::TimelineController;
 pub trait ControllerNode: NodeProcessor {
     /// 制御値マッピングを追加
     fn add_mapping(&mut self, mapping: ControlMapping);
-    
+
     /// 制御値マッピングを削除
     fn remove_mapping(&mut self, source_parameter: &str);
-    
+
     /// 現在の制御値を取得
     fn get_control_value(&self, parameter: &str) -> Option<f32>;
-    
+
     /// 制御コマンドを生成
     fn generate_control_commands(&self) -> Vec<ControlCommand>;
 }
@@ -31,7 +31,7 @@ pub trait ControllerNode: NodeProcessor {
 pub struct ControllerConfig {
     pub enabled: bool,
     pub mappings: Vec<ControlMapping>,
-    pub update_rate: f32,  // Hz
+    pub update_rate: f32, // Hz
 }
 
 impl Default for ControllerConfig {
@@ -50,11 +50,11 @@ pub fn apply_mappings(
     control_values: &HashMap<String, f32>,
 ) -> Vec<ControlCommand> {
     let mut commands = Vec::new();
-    
+
     for mapping in mappings {
         if let Some(&control_value) = control_values.get(&mapping.source_parameter) {
             let mapped_value = mapping.apply(control_value);
-            
+
             commands.push(ControlCommand {
                 target_node_id: mapping.target_node_id,
                 parameter_name: mapping.target_parameter.clone(),
@@ -63,7 +63,7 @@ pub fn apply_mappings(
             });
         }
     }
-    
+
     commands
 }
 
@@ -79,7 +79,7 @@ mod tests {
             Uuid::new_v4(),
             "test_target".to_string(),
         );
-        
+
         // Test linear mapping
         assert_eq!(mapping.apply(0.0), 0.0);
         assert_eq!(mapping.apply(0.5), 0.5);
@@ -94,7 +94,7 @@ mod tests {
             "test_target".to_string(),
         );
         mapping.target_range = (0.0, 10.0);
-        
+
         // Test scaled mapping
         assert_eq!(mapping.apply(0.0), 0.0);
         assert_eq!(mapping.apply(0.5), 5.0);
@@ -109,7 +109,7 @@ mod tests {
             "test_target".to_string(),
         );
         mapping.response_curve = ResponseCurve::Exponential(2.0);
-        
+
         // Test exponential curve
         assert_eq!(mapping.apply(0.0), 0.0);
         assert_eq!(mapping.apply(0.5), 0.25);
