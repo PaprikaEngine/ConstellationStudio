@@ -89,13 +89,15 @@ impl VirtualWebcamBackend for LinuxVirtualWebcam {
             return Err(anyhow!("Virtual webcam is not active"));
         }
 
+        // Convert frame to V4L2 format first (while device_file is not borrowed)
+        let converted_frame = self.convert_frame_for_v4l2(frame)?;
+
+        // Then get mutable reference to device_file and write
         let device_file = self
             .device_file
             .as_mut()
             .ok_or_else(|| anyhow!("Device file not opened"))?;
 
-        // Convert frame to V4L2 format and write to device
-        let converted_frame = self.convert_frame_for_v4l2(frame)?;
         device_file.write_all(&converted_frame)?;
         device_file.flush()?;
 
