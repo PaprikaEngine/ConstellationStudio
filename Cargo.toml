@@ -10,6 +10,17 @@ members = [
 ]
 resolver = "2"
 
+[package]
+name = "constellation-studio"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+constellation-core = { path = "crates/constellation-core" }
+uuid = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
 [workspace.dependencies]
 # Core Vulkan dependencies
 ash = "0.38"

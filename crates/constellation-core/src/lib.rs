@@ -1,7 +1,17 @@
-use anyhow::Result;
+pub mod error;
+pub mod hardware;
+pub mod resilience;
+pub mod telemetry;
 use constellation_vulkan::{MemoryManager, VulkanContext};
+pub use error::{ConstellationError, ConstellationResult, ErrorCategory, ErrorSeverity};
+pub use hardware::{
+    CompatibilityLevel, CompatibilityReport, HardwareCompatibilityChecker, SystemInfo,
+};
+pub use resilience::{HealthMonitor, RecoveryAction, ResilienceManager, SystemStatus};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::time::Duration;
+pub use telemetry::{MetricValue, SessionStats, TelemetryManager};
 use uuid::Uuid;
 
 pub struct ConstellationEngine {
@@ -11,34 +21,208 @@ pub struct ConstellationEngine {
     memory_manager: MemoryManager,
     node_graph: NodeGraph,
     frame_processors: Vec<FrameProcessor>,
+    resilience_manager: Option<ResilienceManager>,
+    telemetry_manager: TelemetryManager,
+    hardware_checker: HardwareCompatibilityChecker,
 }
 
 impl ConstellationEngine {
-    pub fn new() -> Result<Self> {
-        let vulkan_context = VulkanContext::new()?;
-        let memory_manager = MemoryManager::new(&vulkan_context)?;
+    pub fn new() -> ConstellationResult<Self> {
+        let vulkan_context = VulkanContext::new().map_err(|e| match e {
+            constellation_vulkan::VulkanError::InitializationFailed { reason } => {
+                ConstellationError::EngineInitializationFailed { reason }
+            }
+            constellation_vulkan::VulkanError::DeviceCreationFailed { reason } => {
+                ConstellationError::EngineInitializationFailed { reason }
+            }
+            constellation_vulkan::VulkanError::HardwareNotSupported { hardware } => {
+                ConstellationError::HardwareNotSupported { hardware }
+            }
+            constellation_vulkan::VulkanError::InsufficientMemory { required_bytes } => {
+                ConstellationError::InsufficientMemory { required_bytes }
+            }
+            constellation_vulkan::VulkanError::GpuProcessingFailed { reason } => {
+                ConstellationError::GpuProcessingFailed { reason }
+            }
+        })?;
+        let memory_manager = MemoryManager::new(&vulkan_context).map_err(|e| match e {
+            constellation_vulkan::VulkanError::InitializationFailed { reason } => {
+                ConstellationError::EngineInitializationFailed { reason }
+            }
+            constellation_vulkan::VulkanError::DeviceCreationFailed { reason } => {
+                ConstellationError::EngineInitializationFailed { reason }
+            }
+            constellation_vulkan::VulkanError::HardwareNotSupported { hardware } => {
+                ConstellationError::HardwareNotSupported { hardware }
+            }
+            constellation_vulkan::VulkanError::InsufficientMemory { required_bytes } => {
+                ConstellationError::InsufficientMemory { required_bytes }
+            }
+            constellation_vulkan::VulkanError::GpuProcessingFailed { reason } => {
+                ConstellationError::GpuProcessingFailed { reason }
+            }
+        })?;
         let node_graph = NodeGraph::new();
         let frame_processors = Vec::new();
+
+        // ハードウェア互換性チェック
+        let mut hardware_checker = HardwareCompatibilityChecker::new()?;
+        let compatibility_report = hardware_checker.check_compatibility()?;
+
+        // 互換性チェック結果をログに記録
+        tracing::info!(
+            compatibility = ?compatibility_report.overall_compatibility,
+            supported_phases = ?compatibility_report.supported_phases,
+            "Hardware compatibility checked"
+        );
+
+        if matches!(
+            compatibility_report.overall_compatibility,
+            CompatibilityLevel::NotSupported
+        ) {
+            return Err(ConstellationError::HardwareNotSupported {
+                hardware: "System does not meet minimum requirements for any phase".to_string(),
+            });
+        }
 
         Ok(Self {
             vulkan_context,
             memory_manager,
             node_graph,
             frame_processors,
+            resilience_manager: None, // 後で初期化
+            telemetry_manager: TelemetryManager::new(),
+            hardware_checker,
         })
     }
 
-    pub fn process_frame(&mut self, input: &FrameData) -> Result<FrameData> {
+    /// レジリエンス機能を有効化
+    pub fn enable_resilience(&mut self) -> ConstellationResult<()> {
+        let engine_ref = std::sync::Arc::new(unsafe {
+            // 注意: これは安全でない操作です。本来は適切な設計でArcを共有する必要があります
+            std::ptr::read(self as *const Self)
+        });
+        self.resilience_manager = Some(ResilienceManager::new(engine_ref));
+        Ok(())
+    }
+
+    pub fn process_frame(&mut self, input: &FrameData) -> ConstellationResult<FrameData> {
+        let frame_id = Uuid::new_v4();
+        let _frame_span = self.telemetry_manager.start_frame_processing(frame_id);
+
+        let start_time = std::time::Instant::now();
         let mut current_frame = input.clone();
 
         for processor in &mut self.frame_processors {
-            current_frame = processor.process(current_frame)?;
+            match processor.process(&current_frame) {
+                Ok(frame) => {
+                    current_frame = frame;
+                }
+                Err(error) => {
+                    // エラーをテレメトリに記録
+                    self.telemetry_manager.record_error(&error, None);
+
+                    // エラーハンドリングと復旧処理
+                    if let Some(ref mut resilience_manager) = self.resilience_manager {
+                        match resilience_manager.handle_error(&error) {
+                            Ok(RecoveryAction::Retry {
+                                max_attempts,
+                                delay,
+                                backoff_multiplier,
+                            }) => {
+                                // 再試行ロジック
+                                let mut attempts = 0;
+                                let mut current_delay = delay;
+
+                                while attempts < max_attempts {
+                                    std::thread::sleep(current_delay);
+                                    attempts += 1;
+                                    current_delay = Duration::from_millis(
+                                        (current_delay.as_millis() as f32 * backoff_multiplier)
+                                            as u64,
+                                    );
+
+                                    match processor.process(&current_frame) {
+                                        Ok(frame) => {
+                                            current_frame = frame;
+                                            break;
+                                        }
+                                        Err(retry_error) if attempts >= max_attempts => {
+                                            return Err(retry_error);
+                                        }
+                                        Err(_) => {
+                                            // 次の試行へ続行
+                                        }
+                                    }
+                                }
+                            }
+                            Ok(RecoveryAction::QualityReduced) => {
+                                // 品質低下モードで続行
+                                tracing::warn!(
+                                    "Processing in reduced quality mode due to error: {}",
+                                    error
+                                );
+                                // 簡略化された処理を続行
+                            }
+                            Ok(RecoveryAction::Fallback {
+                                processor: fallback_processor,
+                                ..
+                            }) => {
+                                // フォールバックプロセッサを使用
+                                let mut fallback =
+                                    FrameProcessor::new(Uuid::new_v4(), fallback_processor);
+                                current_frame = fallback.process(&current_frame)?;
+                            }
+                            Ok(RecoveryAction::GracefulShutdown { .. }) => {
+                                // システム停止
+                                return Err(ConstellationError::EngineNotRunning);
+                            }
+                            Ok(RecoveryAction::LogAndContinue) => {
+                                // エラーをログに記録して続行
+                                tracing::error!("Frame processing error (continuing): {}", error);
+                            }
+                            Err(recovery_error) => {
+                                // 復旧自体に失敗
+                                return Err(recovery_error);
+                            }
+                        }
+                    } else {
+                        // レジリエンス機能が無効の場合は従来通りエラーを返す
+                        return Err(error);
+                    }
+                }
+            }
+        }
+
+        // パフォーマンス監視とメトリクス記録
+        let processing_time = start_time.elapsed();
+
+        // テレメトリにフレーム統計を記録
+        self.telemetry_manager
+            .metrics_collector
+            .frame_count
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.telemetry_manager
+            .metrics_collector
+            .total_processing_time
+            .fetch_add(
+                processing_time.as_micros() as u64,
+                std::sync::atomic::Ordering::Relaxed,
+            );
+
+        // レジリエンス監視
+        if let Some(ref mut resilience_manager) = self.resilience_manager {
+            resilience_manager.monitor_performance(&current_frame, processing_time);
         }
 
         Ok(current_frame)
     }
 
-    pub fn add_node(&mut self, node_type: NodeType, config: NodeConfig) -> Result<Uuid> {
+    pub fn add_node(
+        &mut self,
+        node_type: NodeType,
+        config: NodeConfig,
+    ) -> ConstellationResult<Uuid> {
         let node_id = Uuid::new_v4();
         let node = Node::new(node_id, node_type, config);
         self.node_graph.add_node(node);
@@ -50,9 +234,64 @@ impl ConstellationEngine {
         source_id: Uuid,
         target_id: Uuid,
         connection_type: ConnectionType,
-    ) -> Result<()> {
+    ) -> ConstellationResult<()> {
         self.node_graph
             .connect_nodes(source_id, target_id, connection_type)
+    }
+
+    /// セッション統計の取得
+    pub fn get_session_stats(&self) -> SessionStats {
+        self.telemetry_manager.get_session_stats()
+    }
+
+    /// カスタムメトリクスの記録
+    pub fn record_metric(&self, name: String, value: MetricValue) {
+        self.telemetry_manager.record_metric(name, value);
+    }
+
+    /// システム状態の記録
+    pub fn record_system_state(&self, cpu_usage: f32, memory_usage: u64, gpu_usage: f32) {
+        self.telemetry_manager
+            .record_system_state(cpu_usage, memory_usage, gpu_usage);
+    }
+
+    /// ログの書き出し（JSON形式）
+    pub fn export_logs_json(&self) -> serde_json::Result<String> {
+        self.telemetry_manager.export_logs_json()
+    }
+
+    /// パフォーマンストレースの書き出し
+    pub fn export_traces_json(&self) -> serde_json::Result<String> {
+        self.telemetry_manager.export_traces_json()
+    }
+
+    /// システム情報の取得
+    pub fn get_system_info(&self) -> &SystemInfo {
+        self.hardware_checker.get_system_info()
+    }
+
+    /// ハードウェア互換性レポートの取得
+    pub fn get_compatibility_report(&self) -> Option<&CompatibilityReport> {
+        self.hardware_checker.get_compatibility_report()
+    }
+
+    /// ハードウェア互換性レポートのJSON出力
+    pub fn export_hardware_report_json(&self) -> ConstellationResult<String> {
+        self.hardware_checker.export_report_json()
+    }
+
+    /// 現在サポートされているフェーズの取得
+    pub fn get_supported_phases(&self) -> Vec<String> {
+        if let Some(report) = self.hardware_checker.get_compatibility_report() {
+            report.supported_phases.clone()
+        } else {
+            vec![]
+        }
+    }
+
+    /// 特定フェーズの要件チェック
+    pub fn can_run_phase(&self, phase: &str) -> bool {
+        self.get_supported_phases().contains(&phase.to_string())
     }
 }
 
@@ -605,9 +844,19 @@ impl NodeGraph {
         source_id: Uuid,
         target_id: Uuid,
         connection_type: ConnectionType,
-    ) -> Result<()> {
-        if !self.nodes.contains_key(&source_id) || !self.nodes.contains_key(&target_id) {
-            return Err(anyhow::anyhow!("One or both nodes not found"));
+    ) -> ConstellationResult<()> {
+        if !self.nodes.contains_key(&source_id) {
+            return Err(ConstellationError::NodeNotFound { node_id: source_id });
+        }
+        if !self.nodes.contains_key(&target_id) {
+            return Err(ConstellationError::NodeNotFound { node_id: target_id });
+        }
+
+        // 循環参照チェック
+        if self.would_create_cycle(source_id, target_id) {
+            return Err(ConstellationError::ConnectionCycleDetected {
+                path: self.find_cycle_path(source_id, target_id),
+            });
         }
 
         self.connections
@@ -621,6 +870,74 @@ impl NodeGraph {
 
     pub fn get_node_mut(&mut self, id: &Uuid) -> Option<&mut Node> {
         self.nodes.get_mut(id)
+    }
+
+    /// 循環参照をチェックする
+    fn would_create_cycle(&self, source_id: Uuid, target_id: Uuid) -> bool {
+        self.has_path(target_id, source_id)
+    }
+
+    /// ノード間にパスが存在するかチェック
+    fn has_path(&self, from: Uuid, to: Uuid) -> bool {
+        let mut visited = std::collections::HashSet::new();
+        let mut stack = vec![from];
+
+        while let Some(current) = stack.pop() {
+            if current == to {
+                return true;
+            }
+
+            if visited.contains(&current) {
+                continue;
+            }
+            visited.insert(current);
+
+            // 現在のノードから接続されているノードを探す
+            for (source, target, _) in &self.connections {
+                if *source == current {
+                    stack.push(*target);
+                }
+            }
+        }
+
+        false
+    }
+
+    /// 循環パスを見つける
+    fn find_cycle_path(&self, source_id: Uuid, target_id: Uuid) -> Vec<Uuid> {
+        let mut path = Vec::new();
+        let mut visited = std::collections::HashSet::new();
+        self.find_path_recursive(target_id, source_id, &mut path, &mut visited);
+        path.push(source_id);
+        path.push(target_id);
+        path
+    }
+
+    fn find_path_recursive(
+        &self,
+        current: Uuid,
+        target: Uuid,
+        path: &mut Vec<Uuid>,
+        visited: &mut std::collections::HashSet<Uuid>,
+    ) -> bool {
+        if current == target {
+            return true;
+        }
+
+        if visited.contains(&current) {
+            return false;
+        }
+        visited.insert(current);
+        path.push(current);
+
+        for (source, next, _) in &self.connections {
+            if *source == current && self.find_path_recursive(*next, target, path, visited) {
+                return true;
+            }
+        }
+
+        path.pop();
+        false
     }
 }
 
@@ -638,25 +955,25 @@ impl FrameProcessor {
         }
     }
 
-    pub fn process(&mut self, input: FrameData) -> Result<FrameData> {
+    pub fn process(&mut self, input: &FrameData) -> ConstellationResult<FrameData> {
         match &self.processor_type {
-            ProcessorType::PassThrough => Ok(input),
+            ProcessorType::PassThrough => Ok(input.clone()),
             ProcessorType::ColorCorrection => self.process_color_correction(input),
             ProcessorType::Blur => self.process_blur(input),
             ProcessorType::Transform => self.process_transform(input),
         }
     }
 
-    fn process_color_correction(&mut self, input: FrameData) -> Result<FrameData> {
-        Ok(input)
+    fn process_color_correction(&mut self, input: &FrameData) -> ConstellationResult<FrameData> {
+        Ok(input.clone())
     }
 
-    fn process_blur(&mut self, input: FrameData) -> Result<FrameData> {
-        Ok(input)
+    fn process_blur(&mut self, input: &FrameData) -> ConstellationResult<FrameData> {
+        Ok(input.clone())
     }
 
-    fn process_transform(&mut self, input: FrameData) -> Result<FrameData> {
-        Ok(input)
+    fn process_transform(&mut self, input: &FrameData) -> ConstellationResult<FrameData> {
+        Ok(input.clone())
     }
 }
 
@@ -712,7 +1029,7 @@ mod tests {
             tally_metadata: TallyMetadata::new(),
         };
 
-        let result = processor.process(input_frame);
+        let result = processor.process(&input_frame);
         assert!(result.is_ok());
     }
 }

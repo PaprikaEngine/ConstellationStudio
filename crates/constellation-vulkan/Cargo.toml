@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 ash = { workspace = true }
 winit = { workspace = true }
-anyhow = { workspace = true }
 thiserror = { workspace = true }
+uuid = { workspace = true }
 tracing = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
