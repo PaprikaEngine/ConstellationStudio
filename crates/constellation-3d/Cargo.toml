@@ -1,0 +1,20 @@
+[package]
+name = "constellation-3d"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ash = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
+serde = { workspace = true }
+constellation-vulkan = { path = "../constellation-vulkan" }
+
+# 3D processing dependencies
+nalgebra = { version = "0.33", features = ["serde-serialize"] }
+cgmath = { version = "0.18", features = ["serde"] }
+
+# Phase 4 feature flag
+[features]
+default = []
+phase-4 = []

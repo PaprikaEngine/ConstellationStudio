@@ -37,11 +37,19 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev
+        # Vulkan development packages
+        sudo apt-get install -y libvulkan-dev vulkan-tools vulkan-validationlayers
+        # Audio development packages
+        sudo apt-get install -y libasound2-dev
+        # Additional X11 packages for capture
+        sudo apt-get install -y libxcb1-dev libxcb-randr0-dev libxcb-xinerama0-dev
 
     - name: Install system dependencies (macOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        # macOS dependencies will be handled by Homebrew if needed
+        # Install Vulkan SDK for macOS (MoltenVK)
+        brew install vulkan-headers
+        # Additional audio and graphics dependencies
         echo "macOS dependencies ready"
 
     - name: Check formatting
@@ -61,6 +69,11 @@ jobs:
       env:
         # Skip actual capture tests in CI environments
         CI: true
+
+    - name: Test with Phase 4 features (optional)
+      run: |
+        cargo test --workspace --features phase-4 --verbose
+      continue-on-error: true # Phase 4 is optional and may not have full CI support
 
   security:
     name: Security Audit

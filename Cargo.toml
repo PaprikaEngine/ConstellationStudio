@@ -6,25 +6,43 @@ members = [
     "crates/constellation-pipeline",
     "crates/constellation-audio",
     "crates/constellation-web",
+    "crates/constellation-3d",
 ]
 resolver = "2"
 
 [workspace.dependencies]
+# Core Vulkan dependencies
 ash = "0.38"
 ash-window = "0.13"
 winit = "0.29"
+
+# Async runtime
 tokio = { version = "1.0", features = ["full"] }
+
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+# Error handling
 anyhow = "1.0"
 thiserror = "1.0"
+
+# Logging
 tracing = "0.1"
 tracing-subscriber = "0.3"
+
+# Utilities
 uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Web server
 axum = { version = "0.7", features = ["ws"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors"] }
 futures = "0.3"
+
+# 3D math libraries (Phase 4)
+nalgebra = "0.33"
+cgmath = "0.18"
 
 [profile.release]
 opt-level = 3

@@ -3,6 +3,10 @@ name = "constellation-core"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+phase-4 = ["constellation-3d"]
+
 [dependencies]
 ash = { workspace = true }
 winit = { workspace = true }
@@ -13,6 +17,7 @@ uuid = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 constellation-vulkan = { path = "../constellation-vulkan" }
+constellation-3d = { path = "../constellation-3d", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = "0.3"
