@@ -126,18 +126,16 @@ pub fn create_node_processor(
             TallyType::Router => Ok(Box::new(TallyRouterNode::new(id, config)?)),
         },
         NodeType::Control(control_type) => match control_type {
-            ControlType::ParameterController => {
-                Ok(Box::new(ParameterControllerNode::new(id, config)?))
-            }
-            ControlType::AnimationController => {
-                Ok(Box::new(AnimationControllerNode::new(id, config)?))
-            }
+            ControlType::Lfo => Ok(Box::new(LFOController::new(id, config)?)),
+            ControlType::Timeline => Ok(Box::new(TimelineController::new(id, config)?)),
+            ControlType::MathController => Ok(Box::new(MathController::new(id, config)?)),
             ControlType::MidiController => {
-                Err(anyhow::anyhow!("MIDI Controller not yet implemented"))
+                Err(anyhow::anyhow!("MIDI controller not yet implemented"))
             }
-            ControlType::OscController => {
-                Err(anyhow::anyhow!("OSC Controller not yet implemented"))
-            }
+            _ => Err(anyhow::anyhow!(
+                "Controller type not yet implemented: {:?}",
+                control_type
+            )),
         },
     }
 }

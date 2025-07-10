@@ -3,7 +3,7 @@ export type NodeType =
   | { Output: 'VirtualWebcam' | 'Preview' | 'Viewer' }
   | { Effect: 'ColorCorrection' | 'Blur' | 'Sharpen' | 'Transform' | 'Composite' }
   | { Audio: 'Input' | 'Mixer' | 'Effect' | 'Output' }
-  | { Control: 'ParameterController' | 'AnimationController' | 'MidiController' | 'OscController' }
+  | { Control: 'LFO' | 'Timeline' | 'MathController' | 'MidiController' | 'OscController' | 'ParameterController' | 'AnimationController' }
   | { Tally: 'Generator' | 'Monitor' | 'Logic' | 'Router' };
 
 // Updated to match Issue #12 new connection system

@@ -3,6 +3,7 @@ import { useNodeStore } from '../stores/useNodeStore';
 import { Sliders, Settings, X } from 'lucide-react';
 import type { ParameterDefinition } from '../types';
 import { useTheme, getThemeColors, getThemeStyles } from '../contexts/ThemeContext';
+import { ControllerPreview } from './ControllerPreview';
 
 interface ParameterPanelProps {
   selectedNodeId: string | null;
@@ -74,6 +75,70 @@ export const ParameterPanel: React.FC<ParameterPanelProps> = ({ selectedNodeId, 
       background: colors.surface,
       color: colors.text,
     };
+
+    // Special handling for controller parameters
+    if (paramName === 'frequency' || paramName === 'amplitude' || paramName === 'time_scale' || paramName === 'speed') {
+      return (
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <input
+            type="range"
+            min={param.minValue ? Number(param.minValue) : 0}
+            max={param.maxValue ? Number(param.maxValue) : 1}
+            step="0.01"
+            value={value || 0}
+            onChange={(e) => handleParameterChange(paramName, parseFloat(e.target.value) || 0)}
+            style={{
+              flex: 1,
+              accentColor: colors.primary,
+            }}
+          />
+          <input
+            type="number"
+            step="0.01"
+            min={param.minValue ? Number(param.minValue) : undefined}
+            max={param.maxValue ? Number(param.maxValue) : undefined}
+            value={value || 0}
+            onChange={(e) => handleParameterChange(paramName, parseFloat(e.target.value) || 0)}
+            style={{
+              width: '80px',
+              padding: '0.25rem',
+              border: `1px solid ${colors.border}`,
+              borderRadius: '4px',
+              fontSize: '0.75rem',
+              background: colors.surface,
+              color: colors.text,
+            }}
+          />
+        </div>
+      );
+    }
+
+    if (paramName === 'phase' || paramName === 'offset') {
+      return (
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <input
+            type="range"
+            min={param.minValue ? Number(param.minValue) : -1}
+            max={param.maxValue ? Number(param.maxValue) : 1}
+            step="0.01"
+            value={value || 0}
+            onChange={(e) => handleParameterChange(paramName, parseFloat(e.target.value) || 0)}
+            style={{
+              flex: 1,
+              accentColor: colors.primary,
+            }}
+          />
+          <span style={{ 
+            width: '50px', 
+            fontSize: '0.75rem', 
+            textAlign: 'right',
+            color: colors.textSecondary,
+          }}>
+            {(value || 0).toFixed(2)}
+          </span>
+        </div>
+      );
+    }
 
     switch (param.parameterType) {
       case 'Float':
@@ -166,10 +231,11 @@ export const ParameterPanel: React.FC<ParameterPanelProps> = ({ selectedNodeId, 
               style={{
                 width: '100%',
                 padding: '0.5rem',
-                border: '1px solid #ddd',
+                border: `1px solid ${colors.border}`,
                 borderRadius: '4px',
                 fontSize: '0.875rem',
-                backgroundColor: 'white',
+                background: colors.surface,
+                color: colors.text,
               }}
             >
               {param.parameterType.Enum.map((option) => (
@@ -316,6 +382,16 @@ export const ParameterPanel: React.FC<ParameterPanelProps> = ({ selectedNodeId, 
               </div>
             ))}
           </div>
+        )}
+
+        {/* Controller Preview */}
+        {nodeProperty.nodeType && 'Control' in nodeProperty.nodeType && (
+          ['LFO', 'Timeline', 'MathController'].includes(nodeProperty.nodeType.Control)
+        ) && (
+          <ControllerPreview
+            controllerType={nodeProperty.nodeType.Control as 'LFO' | 'Timeline' | 'MathController'}
+            parameters={parameters}
+          />
         )}
       </div>
 

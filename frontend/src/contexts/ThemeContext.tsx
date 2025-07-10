@@ -114,7 +114,6 @@ export const getThemeColors = (isDark: boolean) => ({
 });
 
 export const getThemeStyles = (isDark: boolean) => {
-  const colors = getThemeColors(isDark);
   
   return {
     // Header gradient

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Settings, X, Monitor, Sun, Moon } from 'lucide-react';
 import { useTheme, getThemeColors, getThemeStyles, Theme } from '../contexts/ThemeContext';
 

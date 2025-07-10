@@ -7,10 +7,13 @@ use std::ptr;
 
 // X11 bindings
 use x11::xlib::{
-    AllPlanes, Display, Window, XCloseDisplay, XDefaultRootWindow, XDefaultScreen, XDestroyImage,
+    Display, Window, XCloseDisplay, XDefaultRootWindow, XDefaultScreen, XDestroyImage,
     XDisplayHeight, XDisplayWidth, XFetchName, XFree, XGetImage, XGetWindowAttributes, XImage,
     XOpenDisplay, XQueryTree, XWindowAttributes, ZPixmap,
 };
+
+// X11 constants not available in the x11 crate
+const ALL_PLANES: u64 = !0;
 
 pub struct LinuxScreenCapture {
     display_id: u32,
@@ -61,7 +64,7 @@ impl ScreenCaptureBackend for LinuxScreenCapture {
                 0,
                 self.width,
                 self.height,
-                AllPlanes,
+                ALL_PLANES,
                 ZPixmap,
             );
 
@@ -204,7 +207,7 @@ impl WindowCaptureBackend for LinuxWindowCapture {
                 0,
                 self.width,
                 self.height,
-                AllPlanes,
+                ALL_PLANES,
                 ZPixmap,
             );
 
