@@ -129,7 +129,7 @@ impl LFOController {
         let properties = NodeProperties {
             id,
             name: "LFO Controller".to_string(),
-            node_type: NodeType::Control(ControlType::LFO),
+            node_type: NodeType::Control(ControlType::Lfo),
             input_types: vec![], // LFOは入力なし
             output_types: vec![ConnectionType::Control],
             parameters,
@@ -188,8 +188,7 @@ impl LFOController {
             Waveform::Noise => {
                 // Simple pseudo-random noise
                 self.noise_seed = self.noise_seed.wrapping_mul(1103515245).wrapping_add(12345);
-                let noise = (self.noise_seed as f32 / u64::MAX as f32) * 2.0 - 1.0;
-                noise
+                (self.noise_seed as f32 / u64::MAX as f32) * 2.0 - 1.0
             }
             Waveform::Custom(samples) => {
                 if samples.is_empty() {

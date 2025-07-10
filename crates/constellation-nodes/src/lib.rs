@@ -126,7 +126,7 @@ pub fn create_node_processor(
             TallyType::Router => Ok(Box::new(TallyRouterNode::new(id, config)?)),
         },
         NodeType::Control(control_type) => match control_type {
-            ControlType::LFO => Ok(Box::new(LFOController::new(id, config)?)),
+            ControlType::Lfo => Ok(Box::new(LFOController::new(id, config)?)),
             ControlType::Timeline => Ok(Box::new(TimelineController::new(id, config)?)),
             ControlType::MathController => Ok(Box::new(MathController::new(id, config)?)),
             ControlType::MidiController => {

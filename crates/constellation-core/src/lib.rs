@@ -521,8 +521,9 @@ pub enum TallyType {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[allow(clippy::enum_variant_names)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum ControlType {
-    LFO,                 // Low Frequency Oscillator
+    Lfo,                 // Low Frequency Oscillator
     Timeline,            // タイムライン・キーフレーム
     MidiController,      // MIDIコントローラー
     MathController,      // 数式演算・式制御

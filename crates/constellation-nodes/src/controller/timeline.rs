@@ -234,7 +234,7 @@ impl TimelineController {
 
             if self.current_time >= self.duration {
                 if self.loop_enabled {
-                    self.current_time = self.current_time % self.duration;
+                    self.current_time %= self.duration;
                 } else {
                     self.current_time = self.duration;
                     self.is_playing = false;
