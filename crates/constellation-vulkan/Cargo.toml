@@ -2,6 +2,10 @@
 name = "constellation-vulkan"
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-or-later"
+authors = ["MACHIKO LAB"]
+repository = "https://github.com/PaprikaEngine/ConstellationStudio"
+description = "Vulkan graphics processing for Constellation Studio"
 
 [dependencies]
 ash = { workspace = true }

@@ -14,6 +14,13 @@ resolver = "2"
 name = "constellation-studio"
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-or-later"
+license-file = "LICENSE"
+authors = ["MACHIKO LAB"]
+repository = "https://github.com/PaprikaEngine/ConstellationStudio"
+description = "Professional real-time video processing platform with node-based interface"
+keywords = ["video", "streaming", "real-time", "vulkan", "broadcasting"]
+categories = ["multimedia::video", "graphics", "multimedia"]
 
 [dependencies]
 constellation-core = { path = "crates/constellation-core" }

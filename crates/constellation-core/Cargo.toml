@@ -2,6 +2,10 @@
 name = "constellation-core"
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-or-later"
+authors = ["MACHIKO LAB"]
+repository = "https://github.com/PaprikaEngine/ConstellationStudio"
+description = "Core engine for Constellation Studio - real-time video processing with Vulkan"
 
 [features]
 default = ["vulkan"]
