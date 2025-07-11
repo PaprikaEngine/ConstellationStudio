@@ -2,6 +2,10 @@
 name = "constellation-audio"
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-or-later"
+authors = ["MACHIKO LAB"]
+repository = "https://github.com/PaprikaEngine/ConstellationStudio"
+description = "Audio processing for Constellation Studio"
 
 [dependencies]
 constellation-core = { path = "../constellation-core" }

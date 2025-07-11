@@ -2,6 +2,15 @@
 name = "constellation-core"
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-or-later"
+authors = ["MACHIKO LAB"]
+repository = "https://github.com/PaprikaEngine/ConstellationStudio"
+description = "Core engine for Constellation Studio - real-time video processing with Vulkan"
+
+[features]
+default = ["vulkan"]
+vulkan = []
+phase-4 = ["constellation-3d"]
 
 [dependencies]
 ash = { workspace = true }
@@ -12,7 +21,9 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+num_cpus = "1.16"
 constellation-vulkan = { path = "../constellation-vulkan" }
+constellation-3d = { path = "../constellation-3d", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = "0.3"

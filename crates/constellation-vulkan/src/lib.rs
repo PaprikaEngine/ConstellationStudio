@@ -1,21 +1,46 @@
-use anyhow::Result;
+/*
+ * Constellation Studio - Professional Real-time Video Processing
+ * Copyright (c) 2025 MACHIKO LAB
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 use ash::vk;
 use ash::{Device, Entry, Instance};
 use std::collections::VecDeque;
 use thiserror::Error;
 
+/// Vulkan固有のエラー型
 #[derive(Error, Debug)]
-#[allow(clippy::enum_variant_names)]
 pub enum VulkanError {
-    #[error("Vulkan initialization failed: {0}")]
-    InitializationFailed(String),
-    #[error("Device creation failed: {0}")]
-    DeviceCreationFailed(String),
-    #[error("Memory allocation failed: {0}")]
-    MemoryAllocationFailed(String),
-    #[error("Command buffer creation failed: {0}")]
-    CommandBufferCreationFailed(String),
+    #[error("Vulkan initialization failed: {reason}")]
+    InitializationFailed { reason: String },
+
+    #[error("Device creation failed: {reason}")]
+    DeviceCreationFailed { reason: String },
+
+    #[error("Hardware not supported: {hardware}")]
+    HardwareNotSupported { hardware: String },
+
+    #[error("Insufficient memory: required {required_bytes} bytes")]
+    InsufficientMemory { required_bytes: u64 },
+
+    #[error("GPU processing failed: {reason}")]
+    GpuProcessingFailed { reason: String },
 }
+
+pub type VulkanResult<T> = std::result::Result<T, VulkanError>;
 
 pub struct VulkanContext {
     pub entry: Entry,
@@ -32,8 +57,12 @@ pub struct VulkanContext {
 }
 
 impl VulkanContext {
-    pub fn new() -> Result<Self> {
-        let entry = unsafe { Entry::load()? };
+    pub fn new() -> VulkanResult<Self> {
+        let entry = unsafe {
+            Entry::load().map_err(|e| VulkanError::InitializationFailed {
+                reason: format!("Failed to load Vulkan library: {e:?}"),
+            })?
+        };
         let instance = Self::create_instance(&entry)?;
         let physical_device = Self::select_physical_device(&instance)?;
         let (device, queue_family_indices) =
@@ -60,7 +89,7 @@ impl VulkanContext {
         })
     }
 
-    fn create_instance(entry: &Entry) -> Result<Instance> {
+    fn create_instance(entry: &Entry) -> VulkanResult<Instance> {
         let app_info = vk::ApplicationInfo {
             p_application_name: c"Constellation Studio".as_ptr(),
             application_version: vk::make_api_version(0, 1, 0, 0),
@@ -88,27 +117,27 @@ impl VulkanContext {
 
         unsafe {
             entry.create_instance(&create_info, None).map_err(|e| {
-                VulkanError::InitializationFailed(format!("Failed to create instance: {e:?}"))
+                VulkanError::InitializationFailed {
+                    reason: format!("Failed to create Vulkan instance: {e:?}"),
+                }
             })
         }
-        .map_err(Into::into)
     }
 
-    fn select_physical_device(instance: &Instance) -> Result<vk::PhysicalDevice> {
+    fn select_physical_device(instance: &Instance) -> VulkanResult<vk::PhysicalDevice> {
         let physical_devices = unsafe {
             instance.enumerate_physical_devices().map_err(|e| {
-                VulkanError::InitializationFailed(format!(
-                    "Failed to enumerate physical devices: {e:?}"
-                ))
+                VulkanError::HardwareNotSupported {
+                    hardware: format!("Failed to enumerate physical devices: {e:?}"),
+                }
             })?
         };
 
         physical_devices
             .into_iter()
             .find(|&device| Self::is_device_suitable(instance, device))
-            .ok_or_else(|| {
-                VulkanError::InitializationFailed("No suitable physical device found".to_string())
-                    .into()
+            .ok_or_else(|| VulkanError::HardwareNotSupported {
+                hardware: "No suitable GPU found with required features".to_string(),
             })
     }
 
@@ -124,7 +153,7 @@ impl VulkanContext {
     fn create_logical_device(
         instance: &Instance,
         physical_device: vk::PhysicalDevice,
-    ) -> Result<(Device, QueueFamilyIndices)> {
+    ) -> VulkanResult<(Device, QueueFamilyIndices)> {
         let queue_family_indices = Self::find_queue_families(instance, physical_device)?;
 
         let queue_priorities = [1.0f32];
@@ -169,8 +198,8 @@ impl VulkanContext {
         let device = unsafe {
             instance
                 .create_device(physical_device, &device_create_info, None)
-                .map_err(|e| {
-                    VulkanError::DeviceCreationFailed(format!("Failed to create device: {e:?}"))
+                .map_err(|e| VulkanError::DeviceCreationFailed {
+                    reason: format!("Failed to create Vulkan device: {e:?}"),
                 })?
         };
 
@@ -180,7 +209,7 @@ impl VulkanContext {
     fn find_queue_families(
         instance: &Instance,
         physical_device: vk::PhysicalDevice,
-    ) -> Result<QueueFamilyIndices> {
+    ) -> VulkanResult<QueueFamilyIndices> {
         let queue_families =
             unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
 
@@ -203,14 +232,14 @@ impl VulkanContext {
         }
 
         Ok(QueueFamilyIndices {
-            graphics: graphics_family.ok_or_else(|| {
-                VulkanError::InitializationFailed("Graphics queue family not found".to_string())
+            graphics: graphics_family.ok_or_else(|| VulkanError::HardwareNotSupported {
+                hardware: "Graphics queue family not found".to_string(),
             })?,
-            compute: compute_family.ok_or_else(|| {
-                VulkanError::InitializationFailed("Compute queue family not found".to_string())
+            compute: compute_family.ok_or_else(|| VulkanError::HardwareNotSupported {
+                hardware: "Compute queue family not found".to_string(),
             })?,
-            transfer: transfer_family.ok_or_else(|| {
-                VulkanError::InitializationFailed("Transfer queue family not found".to_string())
+            transfer: transfer_family.ok_or_else(|| VulkanError::HardwareNotSupported {
+                hardware: "Transfer queue family not found".to_string(),
             })?,
         })
     }
@@ -218,7 +247,7 @@ impl VulkanContext {
     fn create_command_pools(
         device: &Device,
         queue_family_indices: &QueueFamilyIndices,
-    ) -> Result<Vec<vk::CommandPool>> {
+    ) -> VulkanResult<Vec<vk::CommandPool>> {
         let indices = [
             queue_family_indices.graphics,
             queue_family_indices.compute,
@@ -237,10 +266,8 @@ impl VulkanContext {
             let command_pool = unsafe {
                 device
                     .create_command_pool(&pool_create_info, None)
-                    .map_err(|e| {
-                        VulkanError::CommandBufferCreationFailed(format!(
-                            "Failed to create command pool: {e:?}"
-                        ))
+                    .map_err(|e| VulkanError::InitializationFailed {
+                        reason: format!("Failed to create command pool: {e:?}"),
                     })?
             };
 
@@ -282,7 +309,7 @@ pub struct MemoryManager {
 }
 
 impl MemoryManager {
-    pub fn new(context: &VulkanContext) -> Result<Self> {
+    pub fn new(context: &VulkanContext) -> VulkanResult<Self> {
         let memory_properties = unsafe {
             context
                 .instance
@@ -305,7 +332,7 @@ impl MemoryManager {
         &mut self,
         size: u64,
         memory_type_index: u32,
-    ) -> Result<FrameBuffer> {
+    ) -> VulkanResult<FrameBuffer> {
         if let Some(block) = self.free_blocks.pop_front() {
             if block.size >= size {
                 return Ok(FrameBuffer::from_block(block));
@@ -322,8 +349,8 @@ impl MemoryManager {
         let device_memory = unsafe {
             self.device
                 .allocate_memory(&memory_allocate_info, None)
-                .map_err(|e| {
-                    VulkanError::MemoryAllocationFailed(format!("Failed to allocate memory: {e:?}"))
+                .map_err(|_e| VulkanError::InsufficientMemory {
+                    required_bytes: size,
                 })?
         };
 
