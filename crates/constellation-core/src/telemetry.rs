@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 use crate::error::{ConstellationError, ErrorCategory, ErrorSeverity};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

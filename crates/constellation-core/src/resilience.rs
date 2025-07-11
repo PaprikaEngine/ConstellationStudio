@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 use crate::error::{ConstellationError, ConstellationResult};
 use crate::{ConstellationEngine, FrameData, NodeType, ProcessorType};
 use std::collections::HashMap;

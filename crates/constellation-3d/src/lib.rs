@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 //! 3D/VR/XR processing module for Phase 4
 //!
 //! This module provides 3D scene processing, VR device integration,

@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 use constellation_core::*;
 use constellation_nodes::effects::{BlurNode, ColorCorrectionNode, SharpenNode};
 use constellation_nodes::{NodeConfig, NodeProcessor, ParameterType};

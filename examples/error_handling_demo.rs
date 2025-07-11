@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 // Issue #42 エラーハンドリング・プロダクション品質向上のデモ
 // 実装された機能の動作例
 

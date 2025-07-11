@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 use constellation_core::*;
 use constellation_nodes::*;
 use constellation_pipeline::*;

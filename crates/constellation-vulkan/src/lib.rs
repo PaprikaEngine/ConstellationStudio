@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 use ash::vk;
 use ash::{Device, Entry, Instance};
 use std::collections::VecDeque;

@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 use constellation_core::{FrameData, NodeConfig, RenderData, TallyMetadata};
 use constellation_nodes::{NodeProcessor, ScreenCaptureNode, WindowCaptureNode};
 use std::collections::HashMap;

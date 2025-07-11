@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 //! Constellation Studio - Node Implementation Crate
 //!
 //! This crate contains all node implementations for the constellation pipeline.

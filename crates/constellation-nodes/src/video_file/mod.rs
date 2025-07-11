@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 use anyhow::Result;
 use constellation_core::{AudioFrame, VideoFormat, VideoFrame};
 use std::path::{Path, PathBuf};

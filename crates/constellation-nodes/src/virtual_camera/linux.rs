@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 use super::{VideoFormat, VirtualWebcamBackend};
 use anyhow::{anyhow, Result};
 use constellation_core::VideoFrame;

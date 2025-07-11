@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 use crate::controller::{apply_mappings, ControllerConfig, ControllerNode};
 use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};
 use anyhow::Result;

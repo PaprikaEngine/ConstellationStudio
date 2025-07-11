@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 use crate::camera::CameraCapture;
 use crate::video_file::VideoFileReader;
 use crate::{NodeProcessor, NodeProperties, ParameterDefinition, ParameterType};

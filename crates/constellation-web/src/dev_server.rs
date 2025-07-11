@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 // Development server for frontend communication testing
 // This server runs without Vulkan dependency for development purposes
 

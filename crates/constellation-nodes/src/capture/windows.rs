@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 use super::{ScreenCaptureBackend, WindowCaptureBackend, WindowInfo};
 #[cfg(target_os = "windows")]
 use anyhow::Result;
