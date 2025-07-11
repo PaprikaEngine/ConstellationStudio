@@ -468,6 +468,7 @@ fn enumerate_windows(
                     let bounds = get_window_bounds(display, child).unwrap_or((0, 0, 0, 0));
 
                     windows.push(WindowInfo {
+                        #[allow(clippy::unnecessary_cast)]
                         id: child as u64,
                         title,
                         process_name: "Unknown".to_string(), // TODO: Get actual process name
