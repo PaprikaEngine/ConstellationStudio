@@ -5,6 +5,7 @@ import { ParameterPanel } from './components/ParameterPanel';
 import { NotificationSystem, useNotifications } from './components/NotificationSystem';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ProjectPanel } from './components/ProjectPanel';
+import { PreviewMonitorPanel } from './components/PreviewMonitorPanel';
 import { ThemeProvider, useTheme, getThemeStyles } from './contexts/ThemeContext';
 import { useNodeStore } from './stores/useNodeStore';
 import './App.css';
@@ -30,6 +31,7 @@ function AppContent() {
   const [showParameterPanel, setShowParameterPanel] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showProject, setShowProject] = useState(false);
+  const [showPreviewMonitor, setShowPreviewMonitor] = useState(false);
   
   // Notification system
   const notifications = useNotifications();
@@ -195,6 +197,35 @@ function AppContent() {
               </button>
               
               <button
+                onClick={() => setShowPreviewMonitor(true)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  color: 'white',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  borderRadius: '8px',
+                  padding: '0.5rem 0.75rem',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+                title="Preview & Monitor"
+              >
+                📹 Preview
+              </button>
+              
+              <button
                 onClick={() => setShowSettings(true)}
                 style={{
                   background: 'rgba(255, 255, 255, 0.2)',
@@ -301,6 +332,12 @@ function AppContent() {
         <ProjectPanel 
           isOpen={showProject}
           onClose={() => setShowProject(false)}
+        />
+        
+        {/* Preview & Monitor Panel */}
+        <PreviewMonitorPanel 
+          isOpen={showPreviewMonitor}
+          onClose={() => setShowPreviewMonitor(false)}
         />
         
         {/* Settings Panel */}
