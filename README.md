@@ -175,15 +175,6 @@ Unlike traditional video processing tools that rasterize at every node (causing 
 - **Traditional Approach**: Input → Raster → Effect → Raster → Output ❌ Quality Loss
 - **Our Innovation**: Input → Intermediate → Effect → Intermediate → Final Raster ✅ Zero Degradation
 
-### Competitive Advantages
-| Feature | OBS Studio | ATEM Mini | Wirecast | vMix | **Constellation Studio** |
-|---------|------------|-----------|----------|------|-------------------------|
-| Node-based UI | ❌ | ❌ | ❌ | ❌ | ✅ Intuitive Pipeline |
-| Zero Quality Loss | ❌ | Limited | ❌ | ❌ | ✅ Intermediate Rendering |
-| Real-time <1ms | ❌ | Hardware Only | ❌ | ❌ | ✅ Ash Vulkan |
-| Custom Effects | Limited | ❌ | Limited | Limited | ✅ Rust Plugin System |
-| Scalability | Desktop Only | Hardware Limit | Desktop Only | Desktop Only | ✅ Personal to Broadcast |
-| Memory Safety | C++ | Hardware | C++ | C++ | ✅ Rust + Performance |
 
 ### Core Innovations
 - **🔥 Zero-Degradation Pipeline**: Intermediate rendering state preservation
