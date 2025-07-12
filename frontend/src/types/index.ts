@@ -42,6 +42,19 @@ export type ParameterType =
   | 'Vector4'
   | { Enum: string[] };
 
+export interface AudioLevel {
+  peak_left: number;
+  peak_right: number;
+  rms_left: number;
+  rms_right: number;
+  db_peak_left: number;
+  db_peak_right: number;
+  db_rms_left: number;
+  db_rms_right: number;
+  is_clipping: boolean;
+  timestamp: number;
+}
+
 export interface EngineEvent {
   NodeAdded?: { id: string; nodeType: NodeType };
   NodeRemoved?: { id: string };
@@ -50,6 +63,19 @@ export interface EngineEvent {
   ParameterChanged?: { nodeId: string; parameter: string; value: any };
   FrameProcessed?: { timestamp: number };
   Error?: { message: string };
+  AudioLevel?: {
+    node_id: string;
+    peak_left: number;
+    peak_right: number;
+    rms_left: number;
+    rms_right: number;
+    db_peak_left: number;
+    db_peak_right: number;
+    db_rms_left: number;
+    db_rms_right: number;
+    is_clipping: boolean;
+    timestamp: number;
+  };
 }
 
 export interface EngineStatus {

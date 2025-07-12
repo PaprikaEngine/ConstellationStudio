@@ -442,6 +442,200 @@ pub struct AudioListener {
     pub up: Vector3,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct AudioLevel {
+    pub peak_left: f32,
+    pub peak_right: f32,
+    pub rms_left: f32,
+    pub rms_right: f32,
+    pub db_peak_left: f32,
+    pub db_peak_right: f32,
+    pub db_rms_left: f32,
+    pub db_rms_right: f32,
+    pub is_clipping: bool,
+    pub timestamp: u64,
+}
+
+impl Default for AudioLevel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl AudioLevel {
+    pub fn new() -> Self {
+        Self {
+            peak_left: 0.0,
+            peak_right: 0.0,
+            rms_left: 0.0,
+            rms_right: 0.0,
+            db_peak_left: -f32::INFINITY,
+            db_peak_right: -f32::INFINITY,
+            db_rms_left: -f32::INFINITY,
+            db_rms_right: -f32::INFINITY,
+            is_clipping: false,
+            timestamp: 0,
+        }
+    }
+
+    /// Convert linear amplitude to decibels
+    pub fn linear_to_db(linear: f32) -> f32 {
+        if linear <= 0.0 {
+            -f32::INFINITY
+        } else {
+            20.0 * linear.log10()
+        }
+    }
+
+    /// Calculate audio levels from UnifiedAudioData
+    pub fn from_audio_data(audio_data: &UnifiedAudioData) -> Self {
+        match audio_data {
+            UnifiedAudioData::Stereo { samples, channels, .. } => {
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+
+                match *channels {
+                    1 => {
+                        // Mono: use same values for both channels
+                        let (peak, rms) = Self::calculate_peak_rms(samples);
+                        let db_peak = Self::linear_to_db(peak);
+                        let db_rms = Self::linear_to_db(rms);
+                        
+                        Self {
+                            peak_left: peak,
+                            peak_right: peak,
+                            rms_left: rms,
+                            rms_right: rms,
+                            db_peak_left: db_peak,
+                            db_peak_right: db_peak,
+                            db_rms_left: db_rms,
+                            db_rms_right: db_rms,
+                            is_clipping: peak >= 1.0,
+                            timestamp,
+                        }
+                    }
+                    2 => {
+                        // Stereo: separate left and right channels
+                        let (left_samples, right_samples) = Self::deinterleave_stereo(samples);
+                        let (peak_left, rms_left) = Self::calculate_peak_rms(&left_samples);
+                        let (peak_right, rms_right) = Self::calculate_peak_rms(&right_samples);
+                        
+                        Self {
+                            peak_left,
+                            peak_right,
+                            rms_left,
+                            rms_right,
+                            db_peak_left: Self::linear_to_db(peak_left),
+                            db_peak_right: Self::linear_to_db(peak_right),
+                            db_rms_left: Self::linear_to_db(rms_left),
+                            db_rms_right: Self::linear_to_db(rms_right),
+                            is_clipping: peak_left >= 1.0 || peak_right >= 1.0,
+                            timestamp,
+                        }
+                    }
+                    _ => {
+                        // Multi-channel: mix down to stereo for simplicity
+                        let (left_mix, right_mix) = Self::mixdown_to_stereo(samples, *channels);
+                        let (peak_left, rms_left) = Self::calculate_peak_rms(&left_mix);
+                        let (peak_right, rms_right) = Self::calculate_peak_rms(&right_mix);
+                        
+                        Self {
+                            peak_left,
+                            peak_right,
+                            rms_left,
+                            rms_right,
+                            db_peak_left: Self::linear_to_db(peak_left),
+                            db_peak_right: Self::linear_to_db(peak_right),
+                            db_rms_left: Self::linear_to_db(rms_left),
+                            db_rms_right: Self::linear_to_db(rms_right),
+                            is_clipping: peak_left >= 1.0 || peak_right >= 1.0,
+                            timestamp,
+                        }
+                    }
+                }
+            }
+            UnifiedAudioData::Spatial { .. } => {
+                // For spatial audio, return silence levels for now
+                // TODO: Implement spatial audio level calculation
+                Self::new()
+            }
+        }
+    }
+
+    /// Calculate peak and RMS values for a slice of samples
+    fn calculate_peak_rms(samples: &[f32]) -> (f32, f32) {
+        if samples.is_empty() {
+            return (0.0, 0.0);
+        }
+
+        let mut peak = 0.0f32;
+        let mut sum_squares = 0.0f32;
+
+        for &sample in samples {
+            let abs_sample = sample.abs();
+            peak = peak.max(abs_sample);
+            sum_squares += sample * sample;
+        }
+
+        let rms = (sum_squares / samples.len() as f32).sqrt();
+        (peak, rms)
+    }
+
+    /// Deinterleave stereo samples into separate left and right channels
+    fn deinterleave_stereo(samples: &[f32]) -> (Vec<f32>, Vec<f32>) {
+        let mut left = Vec::with_capacity(samples.len() / 2);
+        let mut right = Vec::with_capacity(samples.len() / 2);
+
+        for chunk in samples.chunks_exact(2) {
+            left.push(chunk[0]);
+            right.push(chunk[1]);
+        }
+
+        (left, right)
+    }
+
+    /// Mix down multi-channel audio to stereo
+    fn mixdown_to_stereo(samples: &[f32], channels: u16) -> (Vec<f32>, Vec<f32>) {
+        if channels <= 2 {
+            return Self::deinterleave_stereo(samples);
+        }
+
+        let frames = samples.len() / channels as usize;
+        let mut left = Vec::with_capacity(frames);
+        let mut right = Vec::with_capacity(frames);
+
+        for frame in samples.chunks_exact(channels as usize) {
+            // Simple mixdown: take first two channels as L/R
+            left.push(frame[0]);
+            right.push(if frame.len() > 1 { frame[1] } else { frame[0] });
+        }
+
+        (left, right)
+    }
+
+    /// Get mono level (average of left and right)
+    pub fn mono_peak(&self) -> f32 {
+        (self.peak_left + self.peak_right) / 2.0
+    }
+
+    /// Get mono RMS level (average of left and right)
+    pub fn mono_rms(&self) -> f32 {
+        (self.rms_left + self.rms_right) / 2.0
+    }
+
+    /// Get mono dB peak level
+    pub fn mono_db_peak(&self) -> f32 {
+        Self::linear_to_db(self.mono_peak())
+    }
+
+    /// Get mono dB RMS level
+    pub fn mono_db_rms(&self) -> f32 {
+        Self::linear_to_db(self.mono_rms())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ControlData {
     // 単一パラメータ制御
