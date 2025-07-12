@@ -36,13 +36,30 @@ export interface ApiEngineStatus {
   connection_count?: number;
 }
 
+export interface VideoFrameMetadata {
+  type: 'video_frame';
+  node_id: string;
+  width: number;
+  height: number;
+  format: 'jpeg' | 'png' | 'rgba8' | 'rgb8';
+  timestamp: number;
+  frame_number: number;
+}
+
+export interface VideoFrame {
+  metadata: VideoFrameMetadata;
+  data: ArrayBuffer;
+}
+
 // API Client Class
 export class ConstellationApiClient {
   private api: AxiosInstance;
   private wsConnection: WebSocket | null = null;
   private eventListeners: ((event: EngineEvent) => void)[] = [];
+  private videoFrameListeners: ((frame: VideoFrame) => void)[] = [];
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+  private pendingFrameMetadata: VideoFrameMetadata | null = null;
 
   constructor() {
     this.api = axios.create({
@@ -158,8 +175,42 @@ export class ConstellationApiClient {
       };
 
       this.wsConnection.onmessage = (event) => {
+        // Handle binary data (video frames)
+        if (event.data instanceof ArrayBuffer) {
+          if (this.pendingFrameMetadata) {
+            const videoFrame: VideoFrame = {
+              metadata: this.pendingFrameMetadata,
+              data: event.data
+            };
+            
+            console.log('🎥 Received video frame:', videoFrame.metadata.node_id, videoFrame.metadata.frame_number);
+            
+            // Notify video frame listeners
+            this.videoFrameListeners.forEach(listener => {
+              try {
+                listener(videoFrame);
+              } catch (error) {
+                console.error('❌ Error in video frame listener:', error);
+              }
+            });
+            
+            this.pendingFrameMetadata = null;
+          }
+          return;
+        }
+        
+        // Handle text data (events and frame metadata)
         try {
-          const engineEvent: EngineEvent = JSON.parse(event.data);
+          const message = JSON.parse(event.data);
+          
+          // Check if this is video frame metadata
+          if (message.type === 'video_frame') {
+            this.pendingFrameMetadata = message as VideoFrameMetadata;
+            return;
+          }
+          
+          // Handle regular engine events
+          const engineEvent: EngineEvent = message;
           console.log('📨 WebSocket event:', engineEvent);
           
           // Notify all listeners
@@ -213,6 +264,42 @@ export class ConstellationApiClient {
         this.eventListeners.splice(index, 1);
       }
     };
+  }
+
+  // Video Frame Listeners
+  addVideoFrameListener(listener: (frame: VideoFrame) => void): () => void {
+    this.videoFrameListeners.push(listener);
+    
+    // Return unsubscribe function
+    return () => {
+      const index = this.videoFrameListeners.indexOf(listener);
+      if (index > -1) {
+        this.videoFrameListeners.splice(index, 1);
+      }
+    };
+  }
+
+  // Video Preview Control
+  startVideoPreview(nodeId: string): void {
+    if (this.wsConnection?.readyState === WebSocket.OPEN) {
+      const message = {
+        type: 'preview_start',
+        node_id: nodeId
+      };
+      this.wsConnection.send(JSON.stringify(message));
+      console.log(`🎥 Started video preview for node ${nodeId}`);
+    }
+  }
+
+  stopVideoPreview(nodeId: string): void {
+    if (this.wsConnection?.readyState === WebSocket.OPEN) {
+      const message = {
+        type: 'preview_stop',
+        node_id: nodeId
+      };
+      this.wsConnection.send(JSON.stringify(message));
+      console.log(`🛑 Stopped video preview for node ${nodeId}`);
+    }
   }
 
   // Utility Methods

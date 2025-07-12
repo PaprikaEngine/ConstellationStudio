@@ -24,25 +24,112 @@ use axum::{
     },
     response::Response,
 };
+use constellation_core::StreamVideoFrame;
 use futures::{sink::SinkExt, stream::StreamExt};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 
 pub async fn websocket_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
     ws.on_upgrade(|socket| websocket_connection(socket, state))
 }
 
+#[derive(Debug, Clone)]
+pub enum WebSocketMessage {
+    Event(crate::EngineEvent),
+    VideoFrame(StreamVideoFrame),
+    PreviewStart {
+        node_id: Uuid,
+        width: u32,
+        height: u32,
+    },
+    PreviewStop {
+        node_id: Uuid,
+    },
+}
+
 async fn websocket_connection(socket: WebSocket, state: AppState) {
     let (mut sender, mut receiver) = socket.split();
     let mut event_receiver = state.event_sender.subscribe();
+    let active_previews = Arc::new(Mutex::new(HashMap::<Uuid, bool>::new()));
 
+    let active_previews_send = active_previews.clone();
     let send_task = tokio::spawn(async move {
-        while let Ok(event) = event_receiver.recv().await {
-            let message = match serde_json::to_string(&event) {
-                Ok(json) => Message::Text(json),
-                Err(_) => continue,
-            };
+        let mut frame_counter = 0u64;
+        let mut _last_frame_time = std::time::Instant::now();
 
-            if sender.send(message).await.is_err() {
-                break;
+        loop {
+            tokio::select! {
+                // Handle engine events
+                event_result = event_receiver.recv() => {
+                    match event_result {
+                        Ok(event) => {
+                            let message = match serde_json::to_string(&event) {
+                                Ok(json) => Message::Text(json),
+                                Err(_) => continue,
+                            };
+
+                            if sender.send(message).await.is_err() {
+                                break;
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+
+                // Generate video frames for active previews
+                _ = tokio::time::sleep(tokio::time::Duration::from_millis(33)) => {
+                    let now = std::time::Instant::now();
+
+                    let node_ids: Vec<Uuid> = {
+                        let previews = active_previews_send.lock().unwrap();
+                        previews.keys().cloned().collect()
+                    };
+
+                    for node_id in node_ids {
+                        let timestamp = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis() as u64;
+
+                        // Generate test pattern frame for each active preview
+                        let frame = StreamVideoFrame::test_pattern(
+                            node_id,
+                            640,
+                            480,
+                            frame_counter,
+                            timestamp,
+                        );
+
+                        // Encode frame as JPEG for transmission
+                        if let Ok(jpeg_data) = frame.encode_jpeg(85) {
+                            let frame_message = serde_json::json!({
+                                "type": "video_frame",
+                                "node_id": node_id,
+                                "width": frame.width,
+                                "height": frame.height,
+                                "format": "jpeg",
+                                "timestamp": frame.timestamp,
+                                "frame_number": frame.frame_number
+                            });
+
+                            // Send frame metadata as text
+                            if let Ok(json) = serde_json::to_string(&frame_message) {
+                                if sender.send(Message::Text(json)).await.is_err() {
+                                    break;
+                                }
+                            }
+
+                            // Send JPEG data as binary
+                            if sender.send(Message::Binary(jpeg_data)).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
+
+                    frame_counter += 1;
+                    _last_frame_time = now;
+                }
             }
         }
     });
@@ -51,7 +138,40 @@ async fn websocket_connection(socket: WebSocket, state: AppState) {
         while let Some(msg) = receiver.next().await {
             if let Ok(msg) = msg {
                 match msg {
-                    Message::Text(_text) => {}
+                    Message::Text(text) => {
+                        // Handle preview control messages
+                        if let Ok(message) = serde_json::from_str::<serde_json::Value>(&text) {
+                            match message.get("type").and_then(|t| t.as_str()) {
+                                Some("preview_start") => {
+                                    if let Some(node_id_str) =
+                                        message.get("node_id").and_then(|id| id.as_str())
+                                    {
+                                        if let Ok(node_id) = node_id_str.parse::<Uuid>() {
+                                            active_previews.lock().unwrap().insert(node_id, true);
+                                            tracing::info!(
+                                                "Started video preview for node {}",
+                                                node_id
+                                            );
+                                        }
+                                    }
+                                }
+                                Some("preview_stop") => {
+                                    if let Some(node_id_str) =
+                                        message.get("node_id").and_then(|id| id.as_str())
+                                    {
+                                        if let Ok(node_id) = node_id_str.parse::<Uuid>() {
+                                            active_previews.lock().unwrap().remove(&node_id);
+                                            tracing::info!(
+                                                "Stopped video preview for node {}",
+                                                node_id
+                                            );
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
                     Message::Close(_) => {
                         break;
                     }
