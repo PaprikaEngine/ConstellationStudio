@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNodeStore } from '../stores/useNodeStore';
+import { apiClient, type VideoFrame } from '../api/client';
 
 interface VideoPreviewProps {
   nodeId: string;
@@ -36,6 +37,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const animationFrameRef = useRef<number>();
+  const frameCountRef = useRef<number>(0);
+  const lastFrameTimeRef = useRef<number>(Date.now());
+  const unsubscribeVideoFrameRef = useRef<(() => void) | null>(null);
 
   // Initialize preview canvas
   useEffect(() => {
@@ -58,68 +62,120 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     try {
       setError(null);
       
-      // Request preview stream from the node
-      const response = await apiClient.request('POST', `/api/nodes/${nodeId}/preview`, {
-        width,
-        height,
-        format: 'rgba8'
-      });
-
-      if (response.success) {
-        setIsPlaying(true);
-        startFrameUpdates();
-      } else {
-        setError('Failed to start preview');
+      // Connect to WebSocket if not already connected
+      if (!apiClient.isConnected()) {
+        await apiClient.connectWebSocket();
       }
+      
+      // Subscribe to video frames for this node
+      unsubscribeVideoFrameRef.current = apiClient.addVideoFrameListener((frame: VideoFrame) => {
+        if (frame.metadata.node_id === nodeId) {
+          drawVideoFrame(frame);
+          updateFrameStats();
+        }
+      });
+      
+      // Start preview streaming
+      apiClient.startVideoPreview(nodeId);
+      
+      setIsPlaying(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     }
-  }, [apiClient, nodeId, width, height, startFrameUpdates]);
+  }, [nodeId]);
 
   // Stop video preview
   const stopPreview = useCallback(async () => {
     try {
-      await apiClient.request('POST', `/api/nodes/${nodeId}/preview/stop`);
+      // Stop preview streaming
+      apiClient.stopVideoPreview(nodeId);
+      
+      // Unsubscribe from video frames
+      if (unsubscribeVideoFrameRef.current) {
+        unsubscribeVideoFrameRef.current();
+        unsubscribeVideoFrameRef.current = null;
+      }
+      
       setIsPlaying(false);
       
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      
+      // Draw placeholder frame
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          drawPlaceholderFrame(ctx, width, height);
+        }
+      }
     } catch (err) {
       console.error('Failed to stop preview:', err);
     }
-  }, [apiClient, nodeId]);
+  }, [nodeId, width, height]);
 
-  // Start frame updates
-  const startFrameUpdates = useCallback(() => {
-    const updateFrame = async () => {
-      try {
-        const canvas = canvasRef.current;
-        if (!canvas || !isPlaying) return;
-
-        // For now, simulate frame updates with test pattern
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          drawTestPattern(ctx, width, height);
-          
-          // Update stats
-          setVideoStats(prev => ({
-            ...prev,
-            fps: Math.round(Math.random() * 5) + 28, // 28-33 fps simulation
-            latency: Math.round(Math.random() * 10) + 30, // 30-40ms simulation
-          }));
-        }
-      } catch (err) {
-        console.error('Frame update error:', err);
-      }
-
-      if (isPlaying) {
-        animationFrameRef.current = requestAnimationFrame(updateFrame);
-      }
-    };
-
-    updateFrame();
-  }, [isPlaying, width, height]);
+  // Draw video frame from WebSocket
+  const drawVideoFrame = useCallback((frame: VideoFrame) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // For now, since we're receiving mock JPEG data, draw a test pattern with frame info
+    // In production, this would decode the actual JPEG data
+    const { metadata } = frame;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+    
+    // Draw animated background based on frame number
+    const hue = (metadata.frame_number * 2) % 360;
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, `hsl(${hue}, 70%, 40%)`);
+    gradient.addColorStop(1, `hsl(${(hue + 120) % 360}, 70%, 20%)`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    
+    // Draw frame info
+    ctx.fillStyle = '#fff';
+    ctx.font = '16px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Live Video Stream`, width / 2, height / 2 - 20);
+    ctx.fillText(`Frame: ${metadata.frame_number}`, width / 2, height / 2);
+    ctx.fillText(`${metadata.width}x${metadata.height}`, width / 2, height / 2 + 20);
+    
+    // Draw timestamp
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`TS: ${metadata.timestamp}`, 10, 25);
+    ctx.fillText(`Node: ${metadata.node_id.substring(0, 8)}...`, 10, 45);
+    
+    // Update resolution in stats
+    setVideoStats(prev => ({
+      ...prev,
+      resolution: `${metadata.width}x${metadata.height}`
+    }));
+  }, [width, height]);
+  
+  // Update frame statistics
+  const updateFrameStats = useCallback(() => {
+    const now = Date.now();
+    frameCountRef.current += 1;
+    
+    // Calculate FPS every second
+    if (now - lastFrameTimeRef.current >= 1000) {
+      const fps = frameCountRef.current;
+      setVideoStats(prev => ({
+        ...prev,
+        fps,
+        latency: Math.round(Math.random() * 10) + 25, // Simulated latency
+      }));
+      frameCountRef.current = 0;
+      lastFrameTimeRef.current = now;
+    }
+  }, []);
 
   // Draw placeholder frame
   const drawPlaceholderFrame = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
@@ -185,6 +241,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (unsubscribeVideoFrameRef.current) {
+        unsubscribeVideoFrameRef.current();
       }
       if (isPlaying) {
         stopPreview();

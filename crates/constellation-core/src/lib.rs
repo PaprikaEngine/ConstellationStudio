@@ -331,6 +331,17 @@ pub struct VideoFrame {
 }
 
 #[derive(Debug, Clone)]
+pub struct StreamVideoFrame {
+    pub node_id: Uuid,
+    pub width: u32,
+    pub height: u32,
+    pub format: VideoFormat,
+    pub data: Vec<u8>,
+    pub timestamp: u64,
+    pub frame_number: u64,
+}
+
+#[derive(Debug, Clone)]
 pub struct AudioFrame {
     pub sample_rate: u32,
     pub channels: u16,
@@ -490,7 +501,9 @@ impl AudioLevel {
     /// Calculate audio levels from UnifiedAudioData
     pub fn from_audio_data(audio_data: &UnifiedAudioData) -> Self {
         match audio_data {
-            UnifiedAudioData::Stereo { samples, channels, .. } => {
+            UnifiedAudioData::Stereo {
+                samples, channels, ..
+            } => {
                 let timestamp = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default()
@@ -502,7 +515,7 @@ impl AudioLevel {
                         let (peak, rms) = Self::calculate_peak_rms(samples);
                         let db_peak = Self::linear_to_db(peak);
                         let db_rms = Self::linear_to_db(rms);
-                        
+
                         Self {
                             peak_left: peak,
                             peak_right: peak,
@@ -521,7 +534,7 @@ impl AudioLevel {
                         let (left_samples, right_samples) = Self::deinterleave_stereo(samples);
                         let (peak_left, rms_left) = Self::calculate_peak_rms(&left_samples);
                         let (peak_right, rms_right) = Self::calculate_peak_rms(&right_samples);
-                        
+
                         Self {
                             peak_left,
                             peak_right,
@@ -540,7 +553,7 @@ impl AudioLevel {
                         let (left_mix, right_mix) = Self::mixdown_to_stereo(samples, *channels);
                         let (peak_left, rms_left) = Self::calculate_peak_rms(&left_mix);
                         let (peak_right, rms_right) = Self::calculate_peak_rms(&right_mix);
-                        
+
                         Self {
                             peak_left,
                             peak_right,
@@ -633,6 +646,76 @@ impl AudioLevel {
     /// Get mono dB RMS level
     pub fn mono_db_rms(&self) -> f32 {
         Self::linear_to_db(self.mono_rms())
+    }
+}
+
+
+impl StreamVideoFrame {
+    pub fn new(node_id: Uuid, width: u32, height: u32, format: VideoFormat, data: Vec<u8>) -> Self {
+        Self {
+            node_id,
+            width,
+            height,
+            format,
+            data,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64,
+            frame_number: 0,
+        }
+    }
+
+    /// Generate a test pattern frame for development
+    pub fn test_pattern(
+        node_id: Uuid,
+        width: u32,
+        height: u32,
+        frame_number: u64,
+        timestamp: u64,
+    ) -> Self {
+        let mut data = Vec::with_capacity((width * height * 4) as usize);
+
+        for y in 0..height {
+            for x in 0..width {
+                let time = frame_number as f32 * 0.016; // ~60fps timing
+
+                // Create animated gradient pattern
+                let r = ((x as f32 / width as f32 + time * 0.1).sin() * 127.0 + 128.0) as u8;
+                let g = ((y as f32 / height as f32 + time * 0.15).sin() * 127.0 + 128.0) as u8;
+                let b = ((time * 0.2).sin() * 127.0 + 128.0) as u8;
+                let a = 255u8;
+
+                data.extend_from_slice(&[r, g, b, a]);
+            }
+        }
+
+        Self {
+            node_id,
+            width,
+            height,
+            format: VideoFormat::Rgba8,
+            data,
+            timestamp,
+            frame_number,
+        }
+    }
+
+    /// Encode frame to JPEG for efficient transmission
+    pub fn encode_jpeg(&self, quality: u8) -> Result<Vec<u8>, String> {
+        match self.format {
+            VideoFormat::Rgba8 => {
+                // For now, return a placeholder JPEG header
+                // In production, this would use an actual JPEG encoder
+                let header = format!(
+                    "MOCK_JPEG:{}x{}:{}:{}",
+                    self.width, self.height, quality, self.frame_number
+                );
+                Ok(header.into_bytes())
+            }
+            VideoFormat::Jpeg => Ok(self.data.clone()),
+            _ => Err("Unsupported format for JPEG encoding".to_string()),
+        }
     }
 }
 
@@ -918,6 +1001,8 @@ pub enum VideoFormat {
     Bgra8,
     Bgr8,
     Yuv420p,
+    Jpeg,
+    Png,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
