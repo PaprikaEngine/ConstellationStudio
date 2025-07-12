@@ -19,7 +19,6 @@ interface AudioLevelMeterProps {
   height?: number;
   showLabels?: boolean;
   showValues?: boolean;
-  updateInterval?: number;
   mode?: 'mono' | 'stereo';
   className?: string;
 }
@@ -30,7 +29,6 @@ export const AudioLevelMeter: React.FC<AudioLevelMeterProps> = ({
   height = 80,
   showLabels = true,
   showValues = false,
-  updateInterval = 50, // 20fps
   mode = 'mono',
   className = ''
 }) => {
@@ -38,33 +36,58 @@ export const AudioLevelMeter: React.FC<AudioLevelMeterProps> = ({
   const [peakHold, setPeakHold] = useState({ left: 0, right: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
-  const lastUpdateRef = useRef<number>(0);
 
-  // Get audio level data from API
-  const fetchAudioLevel = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/nodes/${nodeId}/audio/level`);
-      if (response.ok) {
-        const data = await response.json();
-        setAudioLevel(data);
-        
-        // Update peak hold
-        setPeakHold(prev => ({
-          left: Math.max(prev.left, data.peak_left),
-          right: Math.max(prev.right, data.peak_right)
+  // WebSocket connection for real-time audio levels
+  useEffect(() => {
+    const ws = new WebSocket(`ws://localhost:3000/ws`);
+    
+    ws.onopen = () => {
+      console.log('WebSocket connected for audio level monitoring');
+      // Start audio level monitoring for this node
+      ws.send(JSON.stringify({
+        type: 'audio_level_start',
+        node_id: nodeId
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === 'audio_level' && message.node_id === nodeId) {
+          const levelData = message.level_data;
+          setAudioLevel(levelData);
+          
+          // Update peak hold
+          setPeakHold(prev => ({
+            left: Math.max(prev.left, levelData.peak_left),
+            right: Math.max(prev.right, levelData.peak_right)
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket disconnected for audio level monitoring');
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    return () => {
+      // Stop audio level monitoring when component unmounts
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'audio_level_stop',
+          node_id: nodeId
         }));
       }
-    } catch (error) {
-      console.error('Failed to fetch audio level:', error);
-    }
+      ws.close();
+    };
   }, [nodeId]);
 
-  // Convert linear value to meter position (0-1)
-  const linearToMeterPosition = useCallback((linearValue: number): number => {
-    // Clamp to reasonable range and convert to 0-1 scale
-    const clamped = Math.max(0, Math.min(1.2, linearValue));
-    return clamped / 1.2;
-  }, []);
 
   // Convert dB to meter position for display
   const dbToMeterPosition = useCallback((dbValue: number): number => {
@@ -203,17 +226,11 @@ export const AudioLevelMeter: React.FC<AudioLevelMeterProps> = ({
     }
   }, [audioLevel, peakHold, width, height, mode, showLabels, showValues, dbToMeterPosition, getLevelColor]);
 
-  // Animation loop
+  // Animation loop for drawing only
   const animate = useCallback(() => {
-    const now = Date.now();
-    if (now - lastUpdateRef.current >= updateInterval) {
-      fetchAudioLevel();
-      lastUpdateRef.current = now;
-    }
-    
     drawMeter();
     animationFrameRef.current = requestAnimationFrame(animate);
-  }, [fetchAudioLevel, drawMeter, updateInterval]);
+  }, [drawMeter]);
 
   // Peak hold decay
   useEffect(() => {
@@ -273,7 +290,7 @@ export const AudioLevelMeter: React.FC<AudioLevelMeterProps> = ({
           animation: 'blink 0.5s infinite'
         }} />
       )}
-      <style jsx>{`
+      <style>{`
         @keyframes blink {
           0%, 50% { opacity: 1; }
           51%, 100% { opacity: 0; }
