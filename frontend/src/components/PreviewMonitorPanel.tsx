@@ -41,9 +41,15 @@ export const PreviewMonitorPanel: React.FC<PreviewMonitorPanelProps> = ({
 
     setPreviewNodes(previewCapableNodes);
 
-    // Auto-select first node if none selected
-    if (!selectedPreviewNode && previewCapableNodes.length > 0) {
-      setSelectedPreviewNode(previewCapableNodes[0].id);
+    const isSelectedNodeValid = selectedPreviewNode && previewCapableNodes.some(n => n.id === selectedPreviewNode);
+
+    // Auto-select a node if the current selection is invalid or doesn't exist
+    if (!isSelectedNodeValid) {
+      if (previewCapableNodes.length > 0) {
+        setSelectedPreviewNode(previewCapableNodes[0].id);
+      } else {
+        setSelectedPreviewNode(null);
+      }
     }
   }, [nodes, selectedPreviewNode]);
 

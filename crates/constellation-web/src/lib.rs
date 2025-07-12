@@ -78,6 +78,19 @@ pub enum EngineEvent {
     Error {
         message: String,
     },
+    AudioLevel {
+        node_id: Uuid,
+        peak_left: f32,
+        peak_right: f32,
+        rms_left: f32,
+        rms_right: f32,
+        db_peak_left: f32,
+        db_peak_right: f32,
+        db_rms_left: f32,
+        db_rms_right: f32,
+        is_clipping: bool,
+        timestamp: u64,
+    },
 }
 
 impl AppState {
@@ -178,6 +191,23 @@ impl AppState {
         Ok(())
     }
 
+    /// Send audio level data for a specific node
+    pub fn send_audio_level(&self, node_id: Uuid, audio_level: &AudioLevel) {
+        let _ = self.event_sender.send(EngineEvent::AudioLevel {
+            node_id,
+            peak_left: audio_level.peak_left,
+            peak_right: audio_level.peak_right,
+            rms_left: audio_level.rms_left,
+            rms_right: audio_level.rms_right,
+            db_peak_left: audio_level.db_peak_left,
+            db_peak_right: audio_level.db_peak_right,
+            db_rms_left: audio_level.db_rms_left,
+            db_rms_right: audio_level.db_rms_right,
+            is_clipping: audio_level.is_clipping,
+            timestamp: audio_level.timestamp,
+        });
+    }
+
     pub fn get_node_properties(&self, _node_id: Uuid) -> Option<NodeProperties> {
         // self.node_processors
         //     .lock()
@@ -219,6 +249,9 @@ pub async fn create_app(state: AppState) -> Router {
         .route("/api/monitoring/start", post(start_monitoring))
         .route("/api/monitoring/stop", post(stop_monitoring))
         .route("/api/monitoring/metrics", get(get_monitoring_metrics))
+        .route("/api/audio/monitoring/start", post(start_audio_level_monitoring))
+        .route("/api/audio/monitoring/stop", post(stop_audio_level_monitoring))
+        .route("/api/nodes/:id/audio/level", get(get_node_audio_level))
         .route("/ws", get(websocket_handler))
         .layer(CorsLayer::permissive())
         .with_state(state)
@@ -380,7 +413,7 @@ async fn get_engine_status(State(state): State<AppState>) -> Json<EngineStatusRe
 // Preview and Monitoring API handlers
 
 async fn start_node_preview(
-    Path(node_id): Path<String>,
+    Path(node_id): Path<Uuid>,
     State(_state): State<AppState>,
     Json(request): Json<PreviewRequest>,
 ) -> Result<Json<String>, StatusCode> {
@@ -400,7 +433,7 @@ async fn start_node_preview(
 }
 
 async fn stop_node_preview(
-    Path(node_id): Path<String>,
+    Path(node_id): Path<Uuid>,
     State(_state): State<AppState>,
 ) -> Result<Json<String>, StatusCode> {
     tracing::info!("Stopping preview for node {}", node_id);
@@ -451,7 +484,10 @@ async fn get_monitoring_metrics(
     // Generate mock metrics data
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .map_err(|e| {
+            tracing::error!("System time is before UNIX EPOCH: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
         .as_millis() as u64;
 
     let metrics = MonitoringMetrics {
@@ -484,6 +520,104 @@ async fn get_monitoring_metrics(
     };
 
     Ok(Json(metrics))
+}
+
+async fn start_audio_level_monitoring(
+    State(state): State<AppState>,
+) -> Result<Json<String>, StatusCode> {
+    tracing::info!("Starting audio level monitoring");
+
+    // For development, start sending mock audio level data for all audio nodes
+    let audio_nodes = vec![
+        ("6550e8b6-123e-4f68-9a2d-4d0c8f2e5a7b", "Audio Input"),
+        ("6550e8b6-123e-4f68-9a2d-4d0c8f2e5a7c", "Audio Mixer"),
+        ("6550e8b6-123e-4f68-9a2d-4d0c8f2e5a7d", "Audio Output"),
+    ];
+
+    for (node_id_str, _node_name) in audio_nodes {
+        if let Ok(node_id) = node_id_str.parse::<Uuid>() {
+            // Generate mock audio level and send
+            let mock_level = generate_mock_audio_level();
+            state.send_audio_level(node_id, &mock_level);
+        }
+    }
+
+    Ok(Json("Audio level monitoring started".to_string()))
+}
+
+async fn stop_audio_level_monitoring(
+    State(_state): State<AppState>,
+) -> Result<Json<String>, StatusCode> {
+    tracing::info!("Stopping audio level monitoring");
+    // In a real implementation, we would stop the monitoring threads/tasks
+    Ok(Json("Audio level monitoring stopped".to_string()))
+}
+
+async fn get_node_audio_level(
+    Path(node_id): Path<Uuid>,
+    State(_state): State<AppState>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    tracing::info!("Getting audio level for node {}", node_id);
+
+    // Generate mock audio level data
+    let audio_level = generate_mock_audio_level();
+    
+    let response = serde_json::json!({
+        "node_id": node_id,
+        "peak_left": audio_level.peak_left,
+        "peak_right": audio_level.peak_right,
+        "rms_left": audio_level.rms_left,
+        "rms_right": audio_level.rms_right,
+        "db_peak_left": audio_level.db_peak_left,
+        "db_peak_right": audio_level.db_peak_right,
+        "db_rms_left": audio_level.db_rms_left,
+        "db_rms_right": audio_level.db_rms_right,
+        "is_clipping": audio_level.is_clipping,
+        "timestamp": audio_level.timestamp
+    });
+
+    Ok(Json(response))
+}
+
+/// Generate mock audio level data for development
+fn generate_mock_audio_level() -> AudioLevel {
+    // Generate realistic audio levels
+    let base_rms = 0.1 + rand::random::<f32>() * 0.4; // 0.1 to 0.5
+    let base_peak = base_rms * (1.2 + rand::random::<f32>() * 0.8); // peak > rms
+    
+    // Add slight stereo variation
+    let left_variation = 1.0 + (rand::random::<f32>() - 0.5) * 0.2;
+    let right_variation = 1.0 + (rand::random::<f32>() - 0.5) * 0.2;
+    
+    let peak_left = (base_peak * left_variation).min(1.2); // Allow slight clipping
+    let peak_right = (base_peak * right_variation).min(1.2);
+    let rms_left = (base_rms * left_variation).min(0.8);
+    let rms_right = (base_rms * right_variation).min(0.8);
+
+    AudioLevel {
+        peak_left,
+        peak_right,
+        rms_left,
+        rms_right,
+        db_peak_left: linear_to_db(peak_left),
+        db_peak_right: linear_to_db(peak_right),
+        db_rms_left: linear_to_db(rms_left),
+        db_rms_right: linear_to_db(rms_right),
+        is_clipping: peak_left >= 1.0 || peak_right >= 1.0,
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64,
+    }
+}
+
+// Helper function for generating mock audio levels
+fn linear_to_db(linear: f32) -> f32 {
+    if linear <= 0.0 {
+        -f32::INFINITY
+    } else {
+        20.0 * linear.log10()
+    }
 }
 
 #[cfg(test)]

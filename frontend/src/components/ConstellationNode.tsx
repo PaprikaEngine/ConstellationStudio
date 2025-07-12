@@ -2,6 +2,7 @@ import React from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { ConnectionType } from '../types';
 import { useTheme, getThemeColors, getThemeStyles } from '../contexts/ThemeContext';
+import AudioLevelMeter from './AudioLevelMeter';
 
 interface ConstellationNodeData {
   nodeType: any;
@@ -11,6 +12,7 @@ interface ConstellationNodeData {
 }
 
 export const ConstellationNode: React.FC<NodeProps<ConstellationNodeData>> = ({
+  id,
   data,
   selected,
 }) => {
@@ -70,7 +72,14 @@ export const ConstellationNode: React.FC<NodeProps<ConstellationNodeData>> = ({
     ));
   };
 
-  const nodeHeight = Math.max(70, 35 + Math.max(data.inputTypes.length, data.outputTypes.length) * 22);
+  // Check if this is an audio node
+  const isAudioNode = data.outputTypes.includes('Audio') || 
+                     (data.nodeType && typeof data.nodeType === 'object' && 'Audio' in data.nodeType);
+  
+  const nodeHeight = Math.max(
+    isAudioNode ? 110 : 70, // Extra height for audio meter
+    35 + Math.max(data.inputTypes.length, data.outputTypes.length) * 22
+  );
 
   return (
     <div
@@ -112,6 +121,30 @@ export const ConstellationNode: React.FC<NodeProps<ConstellationNodeData>> = ({
           <div>Out: {data.outputTypes.join(', ')}</div>
         )}
       </div>
+      
+      {/* Audio Level Meter for Audio Nodes */}
+      {isAudioNode && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginTop: '8px',
+          padding: '4px',
+          borderRadius: '4px',
+          backgroundColor: 'rgba(0, 0, 0, 0.1)',
+        }}>
+          <AudioLevelMeter
+            nodeId={id}
+            width={30}
+            height={35}
+            mode="mono"
+            showLabels={false}
+            showValues={true}
+            updateInterval={100}
+            className="node-audio-meter"
+          />
+        </div>
+      )}
       
       {renderOutputHandles()}
     </div>

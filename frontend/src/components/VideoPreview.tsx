@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNodeStore } from '../stores/useNodeStore';
 
 interface VideoPreviewProps {
@@ -54,7 +54,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   }, [width, height]);
 
   // Start video preview
-  const startPreview = async () => {
+  const startPreview = useCallback(async () => {
     try {
       setError(null);
       
@@ -74,10 +74,10 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     }
-  };
+  }, [apiClient, nodeId, width, height, startFrameUpdates]);
 
   // Stop video preview
-  const stopPreview = async () => {
+  const stopPreview = useCallback(async () => {
     try {
       await apiClient.request('POST', `/api/nodes/${nodeId}/preview/stop`);
       setIsPlaying(false);
@@ -88,10 +88,10 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     } catch (err) {
       console.error('Failed to stop preview:', err);
     }
-  };
+  }, [apiClient, nodeId]);
 
   // Start frame updates
-  const startFrameUpdates = () => {
+  const startFrameUpdates = useCallback(() => {
     const updateFrame = async () => {
       try {
         const canvas = canvasRef.current;
@@ -119,7 +119,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     };
 
     updateFrame();
-  };
+  }, [isPlaying, width, height]);
 
   // Draw placeholder frame
   const drawPlaceholderFrame = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
@@ -172,13 +172,13 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   };
 
   // Toggle preview
-  const togglePreview = () => {
+  const togglePreview = useCallback(() => {
     if (isPlaying) {
       stopPreview();
     } else {
       startPreview();
     }
-  };
+  }, [isPlaying, stopPreview, startPreview]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -190,7 +190,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         stopPreview();
       }
     };
-  }, [isPlaying]);
+  }, [isPlaying, stopPreview]);
 
   return (
     <div className="video-preview-container">

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNodeStore } from '../stores/useNodeStore';
 
 interface PerformanceData {
@@ -48,7 +48,7 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
   };
 
   // Start monitoring
-  const startMonitoring = async () => {
+  const startMonitoring = useCallback(async () => {
     try {
       setIsMonitoring(true);
       
@@ -64,10 +64,10 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
       console.error('Failed to start monitoring:', err);
       setIsMonitoring(false);
     }
-  };
+  }, [apiClient, updateInterval, updatePerformanceData]);
 
   // Stop monitoring
-  const stopMonitoring = async () => {
+  const stopMonitoring = useCallback(async () => {
     try {
       await apiClient.request('POST', '/api/monitoring/stop');
       
@@ -80,10 +80,10 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
     } catch (err) {
       console.error('Failed to stop monitoring:', err);
     }
-  };
+  }, [apiClient]);
 
   // Update performance data
-  const updatePerformanceData = async () => {
+  const updatePerformanceData = useCallback(async () => {
     try {
       const response = await apiClient.request('GET', '/api/monitoring/metrics');
       
@@ -116,10 +116,10 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
     } catch (err) {
       console.error('Failed to update performance data:', err);
     }
-  };
+  }, [apiClient, historyLength, checkAlerts]);
 
   // Check for performance alerts
-  const checkAlerts = (data: PerformanceData) => {
+  const checkAlerts = useCallback((data: PerformanceData) => {
     const newAlerts: string[] = [];
 
     // Check each metric against thresholds
@@ -138,7 +138,7 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
       const combined = [...prev, ...newAlerts];
       return combined.slice(-10); // Keep last 10 alerts
     });
-  };
+  }, []);
 
   // Get unit for metric
   const getUnit = (metric: string): string => {
@@ -187,7 +187,7 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
         stopMonitoring();
       }
     };
-  }, [isMonitoring]);
+  }, [isMonitoring, stopMonitoring]);
 
   // Get current performance data
   const currentData = performanceData[performanceData.length - 1];
