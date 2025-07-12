@@ -214,6 +214,11 @@ pub async fn create_app(state: AppState) -> Router {
         .route("/api/engine/start", post(start_engine))
         .route("/api/engine/stop", post(stop_engine))
         .route("/api/engine/status", get(get_engine_status))
+        .route("/api/nodes/:id/preview", post(start_node_preview))
+        .route("/api/nodes/:id/preview/stop", post(stop_node_preview))
+        .route("/api/monitoring/start", post(start_monitoring))
+        .route("/api/monitoring/stop", post(stop_monitoring))
+        .route("/api/monitoring/metrics", get(get_monitoring_metrics))
         .route("/ws", get(websocket_handler))
         .layer(CorsLayer::permissive())
         .with_state(state)
@@ -243,6 +248,42 @@ pub struct EngineStatusResponse {
     pub fps: f64,
     pub frame_count: u64,
     pub node_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PreviewRequest {
+    pub width: u32,
+    pub height: u32,
+    pub format: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MonitoringRequest {
+    pub interval: u64,
+    pub metrics: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MonitoringMetrics {
+    pub timestamp: u64,
+    pub fps: f64,
+    pub cpu: f64,
+    pub memory: f64,
+    pub gpu: f64,
+    pub latency: f64,
+    pub frame_time: f64,
+    pub drops: u64,
+    pub nodes: Vec<NodeMetrics>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NodeMetrics {
+    pub node_id: String,
+    pub node_name: String,
+    pub processing_time: f64,
+    pub memory_usage: f64,
+    pub error_count: u64,
+    pub last_error: Option<String>,
 }
 
 async fn get_nodes(State(_state): State<AppState>) -> Json<HashMap<Uuid, String>> {
@@ -334,6 +375,115 @@ async fn get_engine_status(State(state): State<AppState>) -> Json<EngineStatusRe
         frame_count: 0,
         node_count,
     })
+}
+
+// Preview and Monitoring API handlers
+
+async fn start_node_preview(
+    Path(node_id): Path<String>,
+    State(_state): State<AppState>,
+    Json(request): Json<PreviewRequest>,
+) -> Result<Json<String>, StatusCode> {
+    tracing::info!(
+        "Starting preview for node {} with params {:?}",
+        node_id,
+        request
+    );
+
+    // For now, return success
+    // In a real implementation, we would:
+    // 1. Validate the node exists
+    // 2. Start capturing frames from the node
+    // 3. Set up streaming to the frontend
+
+    Ok(Json("Preview started successfully".to_string()))
+}
+
+async fn stop_node_preview(
+    Path(node_id): Path<String>,
+    State(_state): State<AppState>,
+) -> Result<Json<String>, StatusCode> {
+    tracing::info!("Stopping preview for node {}", node_id);
+
+    // For now, return success
+    // In a real implementation, we would:
+    // 1. Stop capturing frames from the node
+    // 2. Clean up streaming resources
+
+    Ok(Json("Preview stopped successfully".to_string()))
+}
+
+async fn start_monitoring(
+    State(_state): State<AppState>,
+    Json(request): Json<MonitoringRequest>,
+) -> Result<Json<String>, StatusCode> {
+    tracing::info!(
+        "Starting monitoring with interval {}ms, metrics: {:?}",
+        request.interval,
+        request.metrics
+    );
+
+    // For now, return success
+    // In a real implementation, we would:
+    // 1. Start collecting performance metrics
+    // 2. Set up periodic data collection
+    // 3. Initialize monitoring infrastructure
+
+    Ok(Json("Monitoring started successfully".to_string()))
+}
+
+async fn stop_monitoring(State(_state): State<AppState>) -> Result<Json<String>, StatusCode> {
+    tracing::info!("Stopping monitoring");
+
+    // For now, return success
+    // In a real implementation, we would:
+    // 1. Stop collecting metrics
+    // 2. Clean up monitoring resources
+
+    Ok(Json("Monitoring stopped successfully".to_string()))
+}
+
+async fn get_monitoring_metrics(
+    State(_state): State<AppState>,
+) -> Result<Json<MonitoringMetrics>, StatusCode> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // Generate mock metrics data
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+
+    let metrics = MonitoringMetrics {
+        timestamp,
+        fps: 30.0 + (rand::random::<f64>() - 0.5) * 10.0,
+        cpu: 45.0 + (rand::random::<f64>() - 0.5) * 30.0,
+        memory: 68.0 + (rand::random::<f64>() - 0.5) * 20.0,
+        gpu: 52.0 + (rand::random::<f64>() - 0.5) * 25.0,
+        latency: 35.0 + (rand::random::<f64>() - 0.5) * 20.0,
+        frame_time: 33.3 + (rand::random::<f64>() - 0.5) * 10.0,
+        drops: rand::random::<u64>() % 5,
+        nodes: vec![
+            NodeMetrics {
+                node_id: "node_1".to_string(),
+                node_name: "Screen Capture".to_string(),
+                processing_time: 2.5 + (rand::random::<f64>() - 0.5) * 2.0,
+                memory_usage: 15.2 + (rand::random::<f64>() - 0.5) * 5.0,
+                error_count: 0,
+                last_error: None,
+            },
+            NodeMetrics {
+                node_id: "node_2".to_string(),
+                node_name: "Color Correction".to_string(),
+                processing_time: 1.8 + (rand::random::<f64>() - 0.5) * 1.0,
+                memory_usage: 8.7 + (rand::random::<f64>() - 0.5) * 3.0,
+                error_count: 0,
+                last_error: None,
+            },
+        ],
+    };
+
+    Ok(Json(metrics))
 }
 
 #[cfg(test)]
