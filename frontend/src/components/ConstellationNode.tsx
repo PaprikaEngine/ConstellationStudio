@@ -140,7 +140,6 @@ export const ConstellationNode: React.FC<NodeProps<ConstellationNodeData>> = ({
             mode="mono"
             showLabels={false}
             showValues={true}
-            updateInterval={100}
             className="node-audio-meter"
           />
         </div>

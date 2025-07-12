@@ -24,7 +24,7 @@ use axum::{
     },
     response::Response,
 };
-use constellation_core::StreamVideoFrame;
+use constellation_core::{AudioLevel, StreamVideoFrame};
 use futures::{sink::SinkExt, stream::StreamExt};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -38,6 +38,10 @@ pub async fn websocket_handler(ws: WebSocketUpgrade, State(state): State<AppStat
 pub enum WebSocketMessage {
     Event(crate::EngineEvent),
     VideoFrame(StreamVideoFrame),
+    AudioLevel {
+        node_id: Uuid,
+        level_data: AudioLevel,
+    },
     PreviewStart {
         node_id: Uuid,
         width: u32,
@@ -46,17 +50,26 @@ pub enum WebSocketMessage {
     PreviewStop {
         node_id: Uuid,
     },
+    AudioLevelStart {
+        node_id: Uuid,
+    },
+    AudioLevelStop {
+        node_id: Uuid,
+    },
 }
 
 async fn websocket_connection(socket: WebSocket, state: AppState) {
     let (mut sender, mut receiver) = socket.split();
     let mut event_receiver = state.event_sender.subscribe();
     let active_previews = Arc::new(Mutex::new(HashMap::<Uuid, bool>::new()));
+    let active_audio_monitors = Arc::new(Mutex::new(HashMap::<Uuid, bool>::new()));
 
     let active_previews_send = active_previews.clone();
+    let active_audio_send = active_audio_monitors.clone();
     let send_task = tokio::spawn(async move {
         let mut frame_counter = 0u64;
         let mut _last_frame_time = std::time::Instant::now();
+        let mut _last_audio_time = std::time::Instant::now();
 
         loop {
             tokio::select! {
@@ -77,16 +90,17 @@ async fn websocket_connection(socket: WebSocket, state: AppState) {
                     }
                 }
 
-                // Generate video frames for active previews
-                _ = tokio::time::sleep(tokio::time::Duration::from_millis(33)) => {
+                // Generate video frames for active previews and audio levels
+                _ = tokio::time::sleep(tokio::time::Duration::from_millis(16)) => {
                     let now = std::time::Instant::now();
 
-                    let node_ids: Vec<Uuid> = {
+                    // Generate video frames for active previews
+                    let video_node_ids: Vec<Uuid> = {
                         let previews = active_previews_send.lock().unwrap();
                         previews.keys().cloned().collect()
                     };
 
-                    for node_id in node_ids {
+                    for node_id in video_node_ids {
                         let timestamp = std::time::SystemTime::now()
                             .duration_since(std::time::UNIX_EPOCH)
                             .unwrap_or_default()
@@ -127,8 +141,59 @@ async fn websocket_connection(socket: WebSocket, state: AppState) {
                         }
                     }
 
+                    // Generate audio levels for active monitors
+                    let audio_node_ids: Vec<Uuid> = {
+                        let audio_monitors = active_audio_send.lock().unwrap();
+                        audio_monitors.keys().cloned().collect()
+                    };
+
+                    for node_id in audio_node_ids {
+                        // Generate test audio level data
+                        let time = frame_counter as f32 * 0.016; // ~60fps timing
+
+                        // Simulate varying audio levels with sine waves
+                        let peak_left = (time * 2.0).sin().abs() * 0.8;
+                        let peak_right = (time * 2.5).sin().abs() * 0.7;
+                        let rms_left = peak_left * 0.7;
+                        let rms_right = peak_right * 0.65;
+
+                        // Simulate occasional clipping
+                        let is_clipping = (time * 0.2).sin() > 0.95;
+                        let clipping_factor = if is_clipping { 1.2 } else { 1.0 };
+
+                        let audio_level = AudioLevel {
+                            peak_left: peak_left * clipping_factor,
+                            peak_right: peak_right * clipping_factor,
+                            rms_left,
+                            rms_right,
+                            db_peak_left: AudioLevel::linear_to_db(peak_left * clipping_factor),
+                            db_peak_right: AudioLevel::linear_to_db(peak_right * clipping_factor),
+                            db_rms_left: AudioLevel::linear_to_db(rms_left),
+                            db_rms_right: AudioLevel::linear_to_db(rms_right),
+                            is_clipping,
+                            timestamp: std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis() as u64,
+                        };
+
+                        let audio_message = serde_json::json!({
+                            "type": "audio_level",
+                            "node_id": node_id,
+                            "level_data": audio_level
+                        });
+
+                        // Send audio level data
+                        if let Ok(json) = serde_json::to_string(&audio_message) {
+                            if sender.send(Message::Text(json)).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
+
                     frame_counter += 1;
                     _last_frame_time = now;
+                    _last_audio_time = now;
                 }
             }
         }
@@ -163,6 +228,35 @@ async fn websocket_connection(socket: WebSocket, state: AppState) {
                                             active_previews.lock().unwrap().remove(&node_id);
                                             tracing::info!(
                                                 "Stopped video preview for node {}",
+                                                node_id
+                                            );
+                                        }
+                                    }
+                                }
+                                Some("audio_level_start") => {
+                                    if let Some(node_id_str) =
+                                        message.get("node_id").and_then(|id| id.as_str())
+                                    {
+                                        if let Ok(node_id) = node_id_str.parse::<Uuid>() {
+                                            active_audio_monitors
+                                                .lock()
+                                                .unwrap()
+                                                .insert(node_id, true);
+                                            tracing::info!(
+                                                "Started audio level monitoring for node {}",
+                                                node_id
+                                            );
+                                        }
+                                    }
+                                }
+                                Some("audio_level_stop") => {
+                                    if let Some(node_id_str) =
+                                        message.get("node_id").and_then(|id| id.as_str())
+                                    {
+                                        if let Ok(node_id) = node_id_str.parse::<Uuid>() {
+                                            active_audio_monitors.lock().unwrap().remove(&node_id);
+                                            tracing::info!(
+                                                "Stopped audio level monitoring for node {}",
                                                 node_id
                                             );
                                         }
