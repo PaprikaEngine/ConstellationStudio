@@ -4,16 +4,21 @@
 
 A professional node-based video processing system powered by Rust + Ash Vulkan, designed to scale from individual streamers to major broadcasting stations. Supports everything from 2D video processing to future VR/XR content creation with revolutionary intermediate rendering architecture.
 
-## 🚀 Current Status: Phase 1 Foundation
+## 🚀 Current Status: Phase 1 Foundation (In Development)
 
 ### ✅ Core Features Implemented
 - **🦀 Rust Workspace**: Modular architecture with 6 specialized crates
 - **⚡ Vulkan Foundation**: Ash-powered GPU processing with optimized memory pools
-- **🎛️ Node System**: Complete Input/Output/Effect/Audio/Tally node implementations
+- **🎛️ Node System Framework**: Basic Input/Output/Effect/Audio/Tally node structure
 - **⚛️ React Frontend**: Professional UI with TypeScript + React Flow integration
 - **🔒 Type-Safe Communication**: End-to-end type safety via Serde + UUID system
 - **🎵 Real-time Audio Monitoring**: Professional vertical level meters with WebSocket streaming
-- **📹 Video Preview System**: Real-time video display components with streaming support
+
+### 🔄 Core Features In Development
+- **📹 Screen/Window Capture**: Platform-specific implementation ([Issue #40](https://github.com/PaprikaEngine/ConstellationStudio/issues/40))
+- **📹 Virtual Webcam Output**: Cross-platform virtual camera device ([Issue #41](https://github.com/PaprikaEngine/ConstellationStudio/issues/41))
+- **⚡ Vulkan Compute Pipeline**: GPU-accelerated video processing ([Issue #39](https://github.com/PaprikaEngine/ConstellationStudio/issues/39))
+- **📺 Video Preview Components**: Real-time video display ([Issue #44](https://github.com/PaprikaEngine/ConstellationStudio/issues/44))
 
 ### 🎵 Professional Audio Features
 - **Vertical Level Meters**: Intuitive bottom-to-top level visualization (-∞ to 0dB)
@@ -23,11 +28,11 @@ A professional node-based video processing system powered by Rust + Ash Vulkan, 
 - **Multi-channel Support**: Mono/Stereo configurable display modes
 - **Low Latency**: <20ms update latency for real-time monitoring
 
-### 📹 Video Processing Features
-- **Real-time Preview**: Live video display components
-- **GPU Acceleration**: Vulkan-powered video processing pipeline
-- **Memory Optimization**: Efficient frame buffer management
-- **Cross-platform**: Windows/macOS/Linux compatibility
+### 📹 Video Processing Foundation
+- **Vulkan Context**: GPU device initialization and memory management
+- **Frame Buffer System**: Efficient video memory allocation framework
+- **Cross-platform Base**: Windows/macOS/Linux compatibility layer
+- **Processing Pipeline**: Architecture ready for compute shader implementation
 
 ## 🔧 Technology Stack
 
