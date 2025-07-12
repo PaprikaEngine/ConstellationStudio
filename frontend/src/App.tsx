@@ -255,17 +255,30 @@ function AppContent() {
               </button>
             </div>
 
-            <span style={{ 
-              background: 'linear-gradient(135deg, #27ae60 0%, #229954 100%)', 
-              padding: '0.3rem 0.8rem', 
-              borderRadius: '16px',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              boxShadow: '0 2px 6px rgba(39, 174, 96, 0.3)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-            }}>
-              Development Mode
-            </span>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <span style={{ 
+                background: 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)', 
+                padding: '0.3rem 0.8rem', 
+                borderRadius: '16px',
+                fontSize: '0.75rem',
+                fontWeight: '500',
+                boxShadow: '0 2px 6px rgba(52, 152, 219, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+              }}>
+                Phase 1b: Core Features
+              </span>
+              <span style={{ 
+                background: 'linear-gradient(135deg, #27ae60 0%, #229954 100%)', 
+                padding: '0.3rem 0.8rem', 
+                borderRadius: '16px',
+                fontSize: '0.75rem',
+                fontWeight: '500',
+                boxShadow: '0 2px 6px rgba(39, 174, 96, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+              }}>
+                Dev Mode
+              </span>
+            </div>
           </div>
         </header>
         
