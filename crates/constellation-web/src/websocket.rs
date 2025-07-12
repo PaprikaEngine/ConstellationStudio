@@ -56,7 +56,7 @@ async fn websocket_connection(socket: WebSocket, state: AppState) {
     let active_previews_send = active_previews.clone();
     let send_task = tokio::spawn(async move {
         let mut frame_counter = 0u64;
-        let mut last_frame_time = std::time::Instant::now();
+        let mut _last_frame_time = std::time::Instant::now();
 
         loop {
             tokio::select! {
@@ -87,13 +87,18 @@ async fn websocket_connection(socket: WebSocket, state: AppState) {
                     };
 
                     for node_id in node_ids {
+                        let timestamp = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis() as u64;
+
                         // Generate test pattern frame for each active preview
                         let frame = StreamVideoFrame::test_pattern(
                             node_id,
                             640,
                             480,
                             frame_counter,
-                            now.duration_since(last_frame_time).as_millis() as u64
+                            timestamp,
                         );
 
                         // Encode frame as JPEG for transmission
@@ -123,7 +128,7 @@ async fn websocket_connection(socket: WebSocket, state: AppState) {
                     }
 
                     frame_counter += 1;
-                    last_frame_time = now;
+                    _last_frame_time = now;
                 }
             }
         }

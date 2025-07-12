@@ -82,7 +82,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     }
-  }, [nodeId]);
+  }, [nodeId, drawVideoFrame, updateFrameStats]);
 
   // Stop video preview
   const stopPreview = useCallback(async () => {
