@@ -85,7 +85,7 @@ async fn websocket_connection(socket: WebSocket, state: AppState) {
                         let previews = active_previews_send.lock().unwrap();
                         previews.keys().cloned().collect()
                     };
-                    
+
                     for node_id in node_ids {
                         // Generate test pattern frame for each active preview
                         let frame = StreamVideoFrame::test_pattern(

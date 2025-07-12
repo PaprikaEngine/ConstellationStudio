@@ -649,7 +649,6 @@ impl AudioLevel {
     }
 }
 
-
 impl StreamVideoFrame {
     pub fn new(node_id: Uuid, width: u32, height: u32, format: VideoFormat, data: Vec<u8>) -> Self {
         Self {
