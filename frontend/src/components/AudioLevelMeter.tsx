@@ -39,7 +39,7 @@ export const AudioLevelMeter: React.FC<AudioLevelMeterProps> = ({
 
   // WebSocket connection for real-time audio levels
   useEffect(() => {
-    const ws = new WebSocket(`ws://localhost:3000/ws`);
+    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
     
     ws.onopen = () => {
       console.log('WebSocket connected for audio level monitoring');

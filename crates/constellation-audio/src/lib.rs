@@ -81,8 +81,8 @@ pub struct AudioLevelAnalyzer {
     node_levels: HashMap<Uuid, AudioLevel>,
     /// Update interval in milliseconds
     update_interval_ms: u64,
-    /// Last update timestamp per node
-    last_update: HashMap<Uuid, u64>,
+    /// Last update instant per node
+    last_update: HashMap<Uuid, std::time::Instant>,
 }
 
 impl Default for AudioLevelAnalyzer {
@@ -111,14 +111,11 @@ impl AudioLevelAnalyzer {
         node_id: Uuid,
         audio_data: &UnifiedAudioData,
     ) -> Option<AudioLevel> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
+        let now = std::time::Instant::now();
 
         // Check if we should update (throttle updates)
         if let Some(&last_time) = self.last_update.get(&node_id) {
-            if now - last_time < self.update_interval_ms {
+            if now.duration_since(last_time).as_millis() < self.update_interval_ms as u128 {
                 // Return cached level if update too frequent
                 return self.node_levels.get(&node_id).cloned();
             }
@@ -127,7 +124,7 @@ impl AudioLevelAnalyzer {
         // Calculate new level
         let level = AudioLevel::from_audio_data(audio_data);
 
-        // Store level and update timestamp
+        // Store level and update instant
         self.node_levels.insert(node_id, level.clone());
         self.last_update.insert(node_id, now);
 
@@ -262,10 +259,12 @@ mod tests {
 
         let level = level.unwrap();
         assert!(!level.is_clipping);
-        assert!(level.peak_left > 0.0);
-        assert!(level.peak_right > 0.0);
-        assert!(level.rms_left > 0.0);
-        assert!(level.rms_right > 0.0);
+        
+        // Test precise values with reasonable tolerance (Left: [0.5, 0.8], Right: [-0.3, -0.1])
+        assert!((level.peak_left - 0.8).abs() < 1e-5, "Expected peak_left ~0.8, got {}", level.peak_left);
+        assert!((level.peak_right - 0.3).abs() < 1e-5, "Expected peak_right ~0.3, got {}", level.peak_right);
+        assert!((level.rms_left - 0.6670832).abs() < 1e-5, "Expected rms_left ~0.6670832, got {}", level.rms_left);
+        assert!((level.rms_right - 0.223_606_8).abs() < 1e-5, "Expected rms_right ~0.2236068, got {}", level.rms_right);
 
         // Test caching behavior
         let cached_level = analyzer.get_current_level(&node_id);

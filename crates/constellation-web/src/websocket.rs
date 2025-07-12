@@ -180,18 +180,7 @@ async fn websocket_connection(socket: WebSocket, state: AppState) {
                         let audio_message = serde_json::json!({
                             "type": "audio_level",
                             "node_id": node_id,
-                            "level_data": {
-                                "peak_left": audio_level.peak_left,
-                                "peak_right": audio_level.peak_right,
-                                "rms_left": audio_level.rms_left,
-                                "rms_right": audio_level.rms_right,
-                                "db_peak_left": audio_level.db_peak_left,
-                                "db_peak_right": audio_level.db_peak_right,
-                                "db_rms_left": audio_level.db_rms_left,
-                                "db_rms_right": audio_level.db_rms_right,
-                                "is_clipping": audio_level.is_clipping,
-                                "timestamp": audio_level.timestamp
-                            }
+                            "level_data": audio_level
                         });
 
                         // Send audio level data
