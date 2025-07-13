@@ -259,12 +259,28 @@ mod tests {
 
         let level = level.unwrap();
         assert!(!level.is_clipping);
-        
+
         // Test precise values with reasonable tolerance (Left: [0.5, 0.8], Right: [-0.3, -0.1])
-        assert!((level.peak_left - 0.8).abs() < 1e-5, "Expected peak_left ~0.8, got {}", level.peak_left);
-        assert!((level.peak_right - 0.3).abs() < 1e-5, "Expected peak_right ~0.3, got {}", level.peak_right);
-        assert!((level.rms_left - 0.6670832).abs() < 1e-5, "Expected rms_left ~0.6670832, got {}", level.rms_left);
-        assert!((level.rms_right - 0.223_606_8).abs() < 1e-5, "Expected rms_right ~0.2236068, got {}", level.rms_right);
+        assert!(
+            (level.peak_left - 0.8).abs() < 1e-5,
+            "Expected peak_left ~0.8, got {}",
+            level.peak_left
+        );
+        assert!(
+            (level.peak_right - 0.3).abs() < 1e-5,
+            "Expected peak_right ~0.3, got {}",
+            level.peak_right
+        );
+        assert!(
+            (level.rms_left - 0.6670832).abs() < 1e-5,
+            "Expected rms_left ~0.6670832, got {}",
+            level.rms_left
+        );
+        assert!(
+            (level.rms_right - 0.223_606_8).abs() < 1e-5,
+            "Expected rms_right ~0.2236068, got {}",
+            level.rms_right
+        );
 
         // Test caching behavior
         let cached_level = analyzer.get_current_level(&node_id);
