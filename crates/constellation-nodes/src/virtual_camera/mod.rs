@@ -349,16 +349,16 @@ mod tests {
     #[test]
     fn test_platform_info() {
         let info = PlatformInfo::current();
-        
+
         // All platforms should support at least 1080p
         assert!(info.supports_resolution(1920, 1080));
-        
+
         // All platforms should support 30fps
         assert!(info.supports_fps(30));
-        
+
         // Platform name should not be empty
         assert!(!info.platform.is_empty());
-        
+
         // Should have at least one preferred format
         assert!(!info.preferred_formats.is_empty());
     }
@@ -366,11 +366,11 @@ mod tests {
     #[test]
     fn test_platform_fps_selection() {
         let info = PlatformInfo::current();
-        
+
         // Test closest FPS selection
         assert_eq!(info.closest_fps(29), 30);
         assert_eq!(info.closest_fps(31), 30);
-        
+
         // Test exact match
         if info.supports_fps(60) {
             assert_eq!(info.closest_fps(60), 60);
@@ -381,7 +381,7 @@ mod tests {
     fn test_virtual_webcam_creation() {
         let webcam = VirtualWebcam::new("Test Camera".to_string());
         assert!(webcam.is_ok());
-        
+
         let webcam = webcam.unwrap();
         assert_eq!(webcam.config().device_name, "Test Camera");
         assert!(!webcam.is_active());
@@ -396,10 +396,10 @@ mod tests {
             fps: 60,
             format: VideoFormat::BGRA32,
         };
-        
+
         let webcam = VirtualWebcam::new_with_config(config);
         assert!(webcam.is_ok());
-        
+
         let webcam = webcam.unwrap();
         assert_eq!(webcam.config().width, 1280);
         assert_eq!(webcam.config().height, 720);
