@@ -263,7 +263,12 @@ impl LinuxVirtualWebcam {
 
         // Set frame rate
         let fps_cmd = Command::new("v4l2-ctl")
-            .args(&["--device", &device_path, "--set-parm", &self.fps.to_string()])
+            .args(&[
+                "--device",
+                &device_path,
+                "--set-parm",
+                &self.fps.to_string(),
+            ])
             .output();
 
         match fps_cmd {
