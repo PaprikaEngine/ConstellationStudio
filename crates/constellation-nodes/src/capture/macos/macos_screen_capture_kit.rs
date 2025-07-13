@@ -38,22 +38,7 @@ pub struct ScreenCaptureKitCapture {
 
 impl ScreenCaptureBackend for ScreenCaptureKitCapture {
     fn new(display_id: u32, capture_cursor: bool) -> Result<Self> {
-        let cg_display = if display_id == 0 {
-            // Display ID 0 means primary display
-            unsafe { CGMainDisplayID() }
-        } else {
-            // Get specific display by ID
-            let display_list = get_display_list()?;
-            if (display_id as usize) < display_list.len() {
-                display_list[display_id as usize]
-            } else {
-                tracing::warn!(
-                    "Display ID {} not found, falling back to main display",
-                    display_id
-                );
-                unsafe { CGMainDisplayID() }
-            }
-        };
+        let cg_display = Self::get_cg_display_for_id(display_id)?;
 
         let bounds = unsafe { CGDisplayBounds(cg_display) };
         let width = bounds.size.width as u32;
@@ -85,22 +70,7 @@ impl ScreenCaptureBackend for ScreenCaptureKitCapture {
     }
 
     fn get_display_bounds(&self, display_id: u32) -> Result<(u32, u32, u32, u32)> {
-        let cg_display = if display_id == 0 {
-            // Display ID 0 means primary display
-            unsafe { CGMainDisplayID() }
-        } else {
-            // Get specific display by ID
-            let display_list = get_display_list()?;
-            if (display_id as usize) < display_list.len() {
-                display_list[display_id as usize]
-            } else {
-                tracing::warn!(
-                    "Display ID {} not found, falling back to main display",
-                    display_id
-                );
-                unsafe { CGMainDisplayID() }
-            }
-        };
+        let cg_display = Self::get_cg_display_for_id(display_id)?;
 
         let bounds = unsafe { CGDisplayBounds(cg_display) };
         Ok((
@@ -116,23 +86,29 @@ impl ScreenCaptureKitCapture {
     // Phase 1: Remove Screen Capture Kit initialization methods
     // These will be implemented in Phase 2 with proper thread safety
 
-    fn capture_frame_fallback(&mut self) -> Result<VideoFrame> {
-        let cg_display = if self.display_id == 0 {
+    /// Get the Core Graphics display ID for a given display index
+    /// Centralizes display selection logic to avoid duplication
+    fn get_cg_display_for_id(display_id: u32) -> Result<u32> {
+        if display_id == 0 {
             // Display ID 0 means primary display
-            unsafe { CGMainDisplayID() }
+            Ok(unsafe { CGMainDisplayID() })
         } else {
             // Get specific display by ID
             let display_list = get_display_list()?;
-            if (self.display_id as usize) < display_list.len() {
-                display_list[self.display_id as usize]
+            if let Some(&id) = display_list.get(display_id as usize) {
+                Ok(id)
             } else {
                 tracing::warn!(
                     "Display ID {} not found, falling back to main display",
-                    self.display_id
+                    display_id
                 );
-                unsafe { CGMainDisplayID() }
+                Ok(unsafe { CGMainDisplayID() })
             }
-        };
+        }
+    }
+
+    fn capture_frame_fallback(&mut self) -> Result<VideoFrame> {
+        let cg_display = Self::get_cg_display_for_id(self.display_id)?;
 
         // Create a screenshot using CGDisplayCreateImage
         let image = unsafe { core_graphics::display::CGDisplayCreateImage(cg_display) };
@@ -482,10 +458,8 @@ fn get_window_bounds(window_id: u32) -> Result<(u32, u32, u32, u32)> {
     // Get the window list and find the specific window
     let windows = get_window_list()?;
 
-    for window in windows {
-        if window.id == window_id as u64 {
-            return Ok(window.bounds);
-        }
+    if let Some(window) = windows.iter().find(|w| w.id == window_id as u64) {
+        return Ok(window.bounds);
     }
 
     // If window not found, return default bounds
@@ -499,18 +473,16 @@ fn find_window_by_title(title: &str) -> Result<u32> {
     // Get the window list and search for matching title
     let windows = get_window_list()?;
 
-    for window in windows {
-        if window.title.contains(title) {
-            tracing::info!("Found window '{}' with ID {}", window.title, window.id);
-            return Ok(window.id as u32);
-        }
+    if let Some(window) = windows.iter().find(|w| w.title.contains(title)) {
+        tracing::info!("Found window '{}' with ID {}", window.title, window.id);
+        Ok(window.id as u32)
+    } else {
+        // If no window found, return error
+        Err(anyhow::anyhow!(
+            "No window found with title containing '{}'",
+            title
+        ))
     }
-
-    // If no window found, return error
-    Err(anyhow::anyhow!(
-        "No window found with title containing '{}'",
-        title
-    ))
 }
 
 pub fn get_window_list() -> Result<Vec<WindowInfo>> {
