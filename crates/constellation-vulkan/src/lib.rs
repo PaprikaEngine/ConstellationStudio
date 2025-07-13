@@ -439,10 +439,6 @@ pub struct MemoryManager {
     // Pre-allocated pools for different frame sizes
     frame_pools: std::collections::HashMap<FrameSize, MemoryPool>,
 
-    // Legacy memory pools for backward compatibility
-    memory_pools: Vec<vk::DeviceMemory>,
-    free_blocks: VecDeque<MemoryBlock>,
-
     // Fast allocation tracking
     total_allocated: u64,
     peak_allocation: u64,
@@ -538,8 +534,6 @@ impl MemoryManager {
             physical_device: context.physical_device,
             memory_properties,
             frame_pools: std::collections::HashMap::new(),
-            memory_pools: Vec::new(),
-            free_blocks: VecDeque::new(),
             total_allocated: 0,
             peak_allocation: 0,
             allocation_count: 0,
@@ -722,8 +716,8 @@ impl MemoryManager {
     pub fn get_memory_usage(&self) -> MemoryUsage {
         MemoryUsage {
             total_allocated: self.total_allocated,
-            free_blocks: self.free_blocks.len(),
-            total_pools: self.memory_pools.len(),
+            free_blocks: 0, // No longer using legacy free blocks
+            total_pools: self.frame_pools.len(),
         }
     }
 }
@@ -735,11 +729,6 @@ impl Drop for MemoryManager {
             for pool in self.frame_pools.values() {
                 self.device.free_memory(pool.memory, None);
             }
-
-            // Clean up legacy memory pools
-            for &memory in &self.memory_pools {
-                self.device.free_memory(memory, None);
-            }
         }
     }
 }
@@ -748,7 +737,7 @@ impl Drop for MemoryManager {
 /// Manages pre-compiled compute shaders for common video operations
 pub struct ComputePipelineManager {
     device: Device,
-    pipelines: HashMap<String, ComputePipeline>,
+    pipelines: HashMap<VideoOperation, ComputePipeline>,
     descriptor_set_layout: vk::DescriptorSetLayout,
     pipeline_layout: vk::PipelineLayout,
 }
@@ -860,7 +849,7 @@ impl ComputePipelineManager {
     /// Phase 1: Basic pipeline creation framework
     /// Phase 2: Will load actual SPIR-V shaders for each operation
     pub fn create_pipeline(&mut self, operation: VideoOperation) -> VulkanResult<()> {
-        if self.pipelines.contains_key(&operation.shader_name()) {
+        if self.pipelines.contains_key(&operation) {
             return Ok(()); // Pipeline already exists
         }
 
@@ -882,16 +871,14 @@ impl ComputePipelineManager {
             operation_type: operation.clone(),
         };
 
-        self.pipelines
-            .insert(operation.shader_name(), placeholder_pipeline);
-
         tracing::info!("Created placeholder compute pipeline for {:?}", operation);
+        self.pipelines.insert(operation, placeholder_pipeline);
         Ok(())
     }
 
     /// Get pipeline for specific video operation
     pub fn get_pipeline(&self, operation: &VideoOperation) -> Option<&ComputePipeline> {
-        self.pipelines.get(&operation.shader_name())
+        self.pipelines.get(operation)
     }
 
     /// Execute compute operation on video frame
@@ -938,17 +925,6 @@ impl ComputePipelineManager {
 }
 
 impl VideoOperation {
-    fn shader_name(&self) -> String {
-        match self {
-            VideoOperation::ColorSpaceConversion => "color_space_conversion".to_string(),
-            VideoOperation::Resize => "resize".to_string(),
-            VideoOperation::Blur => "blur".to_string(),
-            VideoOperation::Sharpen => "sharpen".to_string(),
-            VideoOperation::ColorCorrection => "color_correction".to_string(),
-            VideoOperation::Flip => "flip".to_string(),
-        }
-    }
-
     fn optimal_workgroup_size(&self) -> [u32; 3] {
         match self {
             VideoOperation::ColorSpaceConversion => [16, 16, 1], // 2D processing
