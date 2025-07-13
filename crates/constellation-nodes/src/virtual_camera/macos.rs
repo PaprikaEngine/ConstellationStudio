@@ -42,6 +42,8 @@ pub struct MacOSVirtualWebcam {
 
 impl VirtualWebcamBackend for MacOSVirtualWebcam {
     fn new(device_name: String, width: u32, height: u32, fps: u32) -> Result<Self> {
+        // For Phase 1, default to BGRA32 which is optimal for macOS
+        // Phase 2 will accept format parameter from the config
         Ok(Self {
             device_name,
             width,
@@ -182,6 +184,39 @@ impl MacOSVirtualWebcam {
     /// Process VideoFrame for virtual webcam output
     /// Phase 1: Basic frame processing and logging
     fn process_frame(&mut self, frame: &VideoFrame) -> Result<Vec<u8>> {
+        // Validate frame dimensions match webcam configuration
+        if frame.width != self.width || frame.height != self.height {
+            return Err(anyhow!(
+                "Frame dimensions {}x{} do not match webcam configuration {}x{}",
+                frame.width,
+                frame.height,
+                self.width,
+                self.height
+            ));
+        }
+
+        // Validate frame data length for RGBA format
+        if frame.format == constellation_core::VideoFormat::Rgba8 {
+            let expected_size = (self.width * self.height * 4) as usize;
+            if frame.data.len() != expected_size {
+                return Err(anyhow!(
+                    "RGBA frame data size {} does not match expected size {} for {}x{}",
+                    frame.data.len(),
+                    expected_size,
+                    self.width,
+                    self.height
+                ));
+            }
+
+            // Ensure RGBA data length is multiple of 4
+            if frame.data.len() % 4 != 0 {
+                return Err(anyhow!(
+                    "RGBA frame data length {} is not a multiple of 4",
+                    frame.data.len()
+                ));
+            }
+        }
+
         // Convert frame data if necessary
         let processed_data = if frame.format == constellation_core::VideoFormat::Rgba8 {
             self.convert_rgba_to_bgra(&frame.data)
@@ -306,5 +341,50 @@ mod tests {
         // Should succeed when not active
         assert!(webcam.set_fps(60).is_ok());
         assert_eq!(webcam.fps, 60);
+    }
+
+    #[test]
+    fn test_frame_validation() {
+        use constellation_core::{VideoFormat as CoreVideoFormat, VideoFrame};
+
+        let mut webcam =
+            MacOSVirtualWebcam::new("Test Camera".to_string(), 1920, 1080, 30).unwrap();
+
+        // Test valid frame
+        let valid_data = vec![0u8; 1920 * 1080 * 4]; // RGBA
+        let valid_frame = VideoFrame {
+            width: 1920,
+            height: 1080,
+            format: CoreVideoFormat::Rgba8,
+            data: valid_data,
+        };
+        assert!(webcam.process_frame(&valid_frame).is_ok());
+
+        // Test invalid dimensions
+        let invalid_frame = VideoFrame {
+            width: 1280,
+            height: 720,
+            format: CoreVideoFormat::Rgba8,
+            data: vec![0u8; 1280 * 720 * 4],
+        };
+        assert!(webcam.process_frame(&invalid_frame).is_err());
+
+        // Test invalid data size
+        let invalid_size_frame = VideoFrame {
+            width: 1920,
+            height: 1080,
+            format: CoreVideoFormat::Rgba8,
+            data: vec![0u8; 100], // Too small
+        };
+        assert!(webcam.process_frame(&invalid_size_frame).is_err());
+
+        // Test non-multiple of 4 data length
+        let invalid_alignment_frame = VideoFrame {
+            width: 1920,
+            height: 1080,
+            format: CoreVideoFormat::Rgba8,
+            data: vec![0u8; 1920 * 1080 * 4 + 1], // Not multiple of 4
+        };
+        assert!(webcam.process_frame(&invalid_alignment_frame).is_err());
     }
 }

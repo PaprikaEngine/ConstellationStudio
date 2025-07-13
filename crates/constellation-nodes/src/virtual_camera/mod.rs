@@ -70,6 +70,8 @@ pub struct VirtualWebcamConfig {
     pub width: u32,
     pub height: u32,
     pub fps: u32,
+    /// Preferred video format (Phase 1: used for documentation, Phase 2: will be enforced)
+    /// Note: Platform backends may override this with optimal formats in Phase 1
     pub format: VideoFormat,
 }
 
@@ -190,21 +192,17 @@ impl VirtualWebcam {
 
     /// Update resolution dynamically
     pub fn set_resolution(&mut self, width: u32, height: u32) -> Result<()> {
-        let result = self.backend.set_resolution(width, height);
-        if result.is_ok() {
-            self.config.width = width;
-            self.config.height = height;
-        }
-        result
+        self.backend.set_resolution(width, height)?;
+        self.config.width = width;
+        self.config.height = height;
+        Ok(())
     }
 
     /// Update frame rate dynamically
     pub fn set_fps(&mut self, fps: u32) -> Result<()> {
-        let result = self.backend.set_fps(fps);
-        if result.is_ok() {
-            self.config.fps = fps;
-        }
-        result
+        self.backend.set_fps(fps)?;
+        self.config.fps = fps;
+        Ok(())
     }
 
     /// Get platform information
