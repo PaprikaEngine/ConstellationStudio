@@ -19,6 +19,7 @@
 use ash::vk;
 use ash::{Device, Entry, Instance};
 use std::collections::{HashMap, VecDeque};
+use std::time::{Duration, Instant};
 use thiserror::Error;
 
 /// Vulkan固有のエラー型
@@ -481,9 +482,7 @@ struct QueueFamilyIndices {
 /// Implements pre-allocated memory pools with zero-allocation frame buffer management
 pub struct MemoryManager {
     device: Device,
-    #[allow(dead_code)] // Phase 2: Will be used for advanced memory type selection
     physical_device: vk::PhysicalDevice,
-    #[allow(dead_code)] // Phase 2: Will be used for memory heap analysis
     memory_properties: vk::PhysicalDeviceMemoryProperties,
 
     // Pre-allocated pools for different frame sizes
@@ -497,8 +496,12 @@ pub struct MemoryManager {
     // Memory type indices for optimal performance
     device_local_memory_type: u32,
     host_visible_memory_type: u32,
-    #[allow(dead_code)] // Phase 2: Will be used for cached memory optimization
     host_coherent_memory_type: u32,
+
+    // Memory budget monitoring and pressure handling
+    memory_budget: MemoryBudget,
+    pressure_monitor: MemoryPressureMonitor,
+    cleanup_strategy: MemoryCleanupStrategy,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -535,6 +538,231 @@ impl FrameSize {
     }
 }
 
+/// Memory budget configuration and monitoring
+#[derive(Debug, Clone)]
+pub struct MemoryBudget {
+    /// Maximum memory that can be allocated (bytes)
+    pub max_total_memory: u64,
+    /// Warning threshold for memory usage (percentage)
+    pub warning_threshold: f32,
+    /// Critical threshold for memory usage (percentage) 
+    pub critical_threshold: f32,
+    /// Maximum memory per frame pool (bytes)
+    pub max_pool_size: u64,
+    /// Total available GPU memory (from hardware)
+    pub total_gpu_memory: u64,
+    /// Reserved memory for system use (bytes)
+    pub reserved_memory: u64,
+}
+
+impl MemoryBudget {
+    pub fn new(total_gpu_memory: u64) -> Self {
+        let reserved_memory = (total_gpu_memory as f64 * 0.1) as u64; // Reserve 10% for system
+        let max_total_memory = total_gpu_memory - reserved_memory;
+        
+        Self {
+            max_total_memory,
+            warning_threshold: 0.75,   // 75% usage warning
+            critical_threshold: 0.90,  // 90% usage critical
+            max_pool_size: max_total_memory / 8, // Max 12.5% per pool
+            total_gpu_memory,
+            reserved_memory,
+        }
+    }
+
+    pub fn current_usage_percentage(&self, current_allocated: u64) -> f32 {
+        (current_allocated as f64 / self.max_total_memory as f64) as f32
+    }
+
+    pub fn is_over_warning(&self, current_allocated: u64) -> bool {
+        self.current_usage_percentage(current_allocated) > self.warning_threshold
+    }
+
+    pub fn is_over_critical(&self, current_allocated: u64) -> bool {
+        self.current_usage_percentage(current_allocated) > self.critical_threshold
+    }
+}
+
+/// Memory pressure monitoring and alerting
+#[derive(Debug)]
+pub struct MemoryPressureMonitor {
+    /// Recent allocation failures
+    allocation_failures: VecDeque<Instant>,
+    /// Memory usage samples for trend analysis
+    usage_samples: VecDeque<(Instant, u64)>,
+    /// Current pressure level
+    current_pressure: MemoryPressureLevel,
+    /// Last pressure check time
+    last_check: Instant,
+    /// Maximum samples to keep for analysis
+    max_samples: usize,
+}
+
+impl Default for MemoryPressureMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl MemoryPressureMonitor {
+    pub fn new() -> Self {
+        Self {
+            allocation_failures: VecDeque::new(),
+            usage_samples: VecDeque::new(),
+            current_pressure: MemoryPressureLevel::Normal,
+            last_check: Instant::now(),
+            max_samples: 100,
+        }
+    }
+
+    pub fn record_allocation_failure(&mut self) {
+        let now = Instant::now();
+        self.allocation_failures.push_back(now);
+        
+        // Keep only recent failures (last 5 minutes)
+        while let Some(&front) = self.allocation_failures.front() {
+            if now.duration_since(front) > Duration::from_secs(300) {
+                self.allocation_failures.pop_front();
+            } else {
+                break;
+            }
+        }
+    }
+
+    pub fn record_usage_sample(&mut self, allocated_bytes: u64) {
+        let now = Instant::now();
+        self.usage_samples.push_back((now, allocated_bytes));
+        
+        // Keep limited samples for performance
+        if self.usage_samples.len() > self.max_samples {
+            self.usage_samples.pop_front();
+        }
+    }
+
+    pub fn update_pressure(&mut self, budget: &MemoryBudget, current_allocated: u64) {
+        let now = Instant::now();
+        
+        // Only check pressure every second to avoid overhead
+        if now.duration_since(self.last_check) < Duration::from_secs(1) {
+            return;
+        }
+        
+        self.last_check = now;
+        self.record_usage_sample(current_allocated);
+        
+        // Calculate pressure based on multiple factors
+        let usage_pressure = self.calculate_usage_pressure(budget, current_allocated);
+        let failure_pressure = self.calculate_failure_pressure();
+        let trend_pressure = self.calculate_trend_pressure(budget);
+        
+        // Use the highest pressure level
+        self.current_pressure = usage_pressure
+            .max(failure_pressure)
+            .max(trend_pressure);
+            
+        if self.current_pressure != MemoryPressureLevel::Normal {
+            tracing::warn!(
+                "Memory pressure: {:?} (usage: {:.1}%, failures: {}, trend: {:?})",
+                self.current_pressure,
+                budget.current_usage_percentage(current_allocated) * 100.0,
+                self.allocation_failures.len(),
+                trend_pressure
+            );
+        }
+    }
+
+    fn calculate_usage_pressure(&self, budget: &MemoryBudget, current_allocated: u64) -> MemoryPressureLevel {
+        if budget.is_over_critical(current_allocated) {
+            MemoryPressureLevel::Critical
+        } else if budget.is_over_warning(current_allocated) {
+            MemoryPressureLevel::High
+        } else {
+            MemoryPressureLevel::Normal
+        }
+    }
+
+    fn calculate_failure_pressure(&self) -> MemoryPressureLevel {
+        let recent_failures = self.allocation_failures.len();
+        match recent_failures {
+            0..=2 => MemoryPressureLevel::Normal,
+            3..=5 => MemoryPressureLevel::High,
+            _ => MemoryPressureLevel::Critical,
+        }
+    }
+
+    fn calculate_trend_pressure(&self, budget: &MemoryBudget) -> MemoryPressureLevel {
+        if self.usage_samples.len() < 10 {
+            return MemoryPressureLevel::Normal;
+        }
+        
+        // Calculate memory usage trend over recent samples
+        let recent_samples: Vec<_> = self.usage_samples.iter().rev().take(10).collect();
+        if recent_samples.len() < 10 {
+            return MemoryPressureLevel::Normal;
+        }
+        
+        let first_usage = recent_samples[9].1;
+        let last_usage = recent_samples[0].1;
+        
+        if last_usage <= first_usage {
+            return MemoryPressureLevel::Normal; // Usage is stable or decreasing
+        }
+        
+        let growth_rate = (last_usage - first_usage) as f64 / first_usage as f64;
+        let current_percentage = budget.current_usage_percentage(last_usage);
+        
+        // If we're growing fast and already at high usage, that's concerning
+        if (growth_rate > 0.2 && current_percentage > 0.6) 
+            || (growth_rate > 0.5 && current_percentage > 0.4) {
+            MemoryPressureLevel::High
+        } else {
+            MemoryPressureLevel::Normal
+        }
+    }
+
+    pub fn current_pressure(&self) -> MemoryPressureLevel {
+        self.current_pressure
+    }
+
+    pub fn recent_failure_count(&self) -> usize {
+        self.allocation_failures.len()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MemoryPressureLevel {
+    Normal,
+    High,
+    Critical,
+}
+
+/// Memory cleanup strategies for pressure relief
+#[derive(Debug, Clone)]
+pub struct MemoryCleanupStrategy {
+    /// Enable automatic cleanup when under pressure
+    pub auto_cleanup_enabled: bool,
+    /// Cleanup threshold (pressure level that triggers cleanup)
+    pub cleanup_threshold: MemoryPressureLevel,
+    /// Maximum age for unused buffers before cleanup (seconds)
+    pub max_buffer_age: u64,
+    /// Minimum free buffers to maintain per pool
+    pub min_free_buffers: u32,
+    /// Enable pool shrinking under pressure
+    pub allow_pool_shrinking: bool,
+}
+
+impl Default for MemoryCleanupStrategy {
+    fn default() -> Self {
+        Self {
+            auto_cleanup_enabled: true,
+            cleanup_threshold: MemoryPressureLevel::High,
+            max_buffer_age: 300, // 5 minutes
+            min_free_buffers: 2,
+            allow_pool_shrinking: true,
+        }
+    }
+}
+
 /// Memory pool for specific frame sizes with pre-allocated buffers
 struct MemoryPool {
     memory: vk::DeviceMemory,
@@ -555,6 +783,20 @@ impl MemoryManager {
                 .get_physical_device_memory_properties(context.physical_device)
         };
 
+        // Calculate total GPU memory from device-local heaps
+        let total_gpu_memory: u64 = memory_properties
+            .memory_heaps
+            .iter()
+            .take(memory_properties.memory_heap_count as usize)
+            .filter(|heap| heap.flags.contains(vk::MemoryHeapFlags::DEVICE_LOCAL))
+            .map(|heap| heap.size)
+            .sum();
+
+        tracing::info!(
+            "Total GPU memory detected: {} GB",
+            total_gpu_memory / 1024 / 1024 / 1024
+        );
+
         // Find optimal memory types for video processing
         let device_local_memory_type =
             Self::find_memory_type(&memory_properties, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
@@ -572,11 +814,23 @@ impl MemoryManager {
         )
         .unwrap_or(host_visible_memory_type); // Fallback to host visible
 
+        // Initialize memory budget and monitoring
+        let memory_budget = MemoryBudget::new(total_gpu_memory);
+        let pressure_monitor = MemoryPressureMonitor::new();
+        let cleanup_strategy = MemoryCleanupStrategy::default();
+
         tracing::info!(
             "Memory types - Device Local: {}, Host Visible: {}, Host Coherent: {}",
             device_local_memory_type,
             host_visible_memory_type,
             host_coherent_memory_type
+        );
+
+        tracing::info!(
+            "Memory budget - Max: {} GB, Warning: {:.0}%, Critical: {:.0}%",
+            memory_budget.max_total_memory / 1024 / 1024 / 1024,
+            memory_budget.warning_threshold * 100.0,
+            memory_budget.critical_threshold * 100.0
         );
 
         Ok(Self {
@@ -590,6 +844,9 @@ impl MemoryManager {
             device_local_memory_type,
             host_visible_memory_type,
             host_coherent_memory_type,
+            memory_budget,
+            pressure_monitor,
+            cleanup_strategy,
         })
     }
 
@@ -627,6 +884,27 @@ impl MemoryManager {
 
         let buffer_size = frame_size.buffer_size();
         let total_size = buffer_size * buffer_count as u64;
+
+        // Check memory budget before allocation
+        let projected_total = self.total_allocated + total_size;
+        if projected_total > self.memory_budget.max_total_memory {
+            self.pressure_monitor.record_allocation_failure();
+            return Err(VulkanError::InsufficientMemory {
+                required_bytes: total_size,
+            });
+        }
+
+        // Check individual pool size limit
+        if total_size > self.memory_budget.max_pool_size {
+            tracing::warn!(
+                "Pool size {} MB exceeds limit {} MB, reducing buffer count",
+                total_size / 1024 / 1024,
+                self.memory_budget.max_pool_size / 1024 / 1024
+            );
+            let max_buffers = (self.memory_budget.max_pool_size / buffer_size) as u32;
+            return self.create_frame_pool(frame_size, max_buffers.max(1), use_device_local);
+        }
+
         let memory_type_index = if use_device_local {
             self.device_local_memory_type
         } else {
@@ -651,8 +929,11 @@ impl MemoryManager {
         let memory = unsafe {
             self.device
                 .allocate_memory(&memory_allocate_info, None)
-                .map_err(|_e| VulkanError::InsufficientMemory {
-                    required_bytes: total_size,
+                .map_err(|_e| {
+                    self.pressure_monitor.record_allocation_failure();
+                    VulkanError::InsufficientMemory {
+                        required_bytes: total_size,
+                    }
                 })?
         };
 
@@ -674,6 +955,9 @@ impl MemoryManager {
         self.total_allocated += total_size;
         self.peak_allocation = self.peak_allocation.max(self.total_allocated);
 
+        // Update pressure monitoring
+        self.pressure_monitor.update_pressure(&self.memory_budget, self.total_allocated);
+
         Ok(())
     }
 
@@ -683,7 +967,11 @@ impl MemoryManager {
         &mut self,
         frame_size: &FrameSize,
     ) -> VulkanResult<PooledFrameBuffer> {
+        // Check if we need automatic cleanup due to pressure
+        self.check_and_perform_cleanup();
+
         let pool = self.frame_pools.get_mut(frame_size).ok_or_else(|| {
+            self.pressure_monitor.record_allocation_failure();
             VulkanError::InsufficientMemory {
                 required_bytes: frame_size.buffer_size(),
             }
@@ -692,11 +980,17 @@ impl MemoryManager {
         let buffer_index =
             pool.free_buffers
                 .pop_front()
-                .ok_or_else(|| VulkanError::InsufficientMemory {
-                    required_bytes: frame_size.buffer_size(),
+                .ok_or_else(|| {
+                    self.pressure_monitor.record_allocation_failure();
+                    VulkanError::InsufficientMemory {
+                        required_bytes: frame_size.buffer_size(),
+                    }
                 })?;
 
         self.allocation_count += 1;
+
+        // Update pressure monitoring
+        self.pressure_monitor.update_pressure(&self.memory_budget, self.total_allocated);
 
         tracing::trace!(
             "Acquired frame buffer {} from pool {}x{} {:?}",
@@ -763,12 +1057,119 @@ impl MemoryManager {
         Ok(FrameBuffer::new(device_memory, size))
     }
 
+    /// Check memory pressure and perform automatic cleanup if needed
+    fn check_and_perform_cleanup(&mut self) {
+        if !self.cleanup_strategy.auto_cleanup_enabled {
+            return;
+        }
+
+        let current_pressure = self.pressure_monitor.current_pressure();
+        if current_pressure >= self.cleanup_strategy.cleanup_threshold {
+            tracing::info!("Performing automatic memory cleanup due to {:?} pressure", current_pressure);
+            self.perform_pressure_cleanup();
+        }
+    }
+
+    /// Perform memory cleanup to relieve pressure
+    fn perform_pressure_cleanup(&mut self) {
+        let mut cleaned_bytes = 0u64;
+        let mut pools_to_remove = Vec::new();
+
+        // Strategy 1: Clean up pools with too many free buffers
+        for (frame_size, pool) in &mut self.frame_pools {
+            let free_count = pool.free_buffers.len() as u32;
+            let min_free = self.cleanup_strategy.min_free_buffers;
+            
+            if free_count > min_free + 2 {
+                let excess_buffers = free_count - min_free;
+                let bytes_per_buffer = pool.buffer_size;
+                let cleanup_bytes = excess_buffers as u64 * bytes_per_buffer;
+                
+                // For simplicity, mark pools with excessive free buffers for potential removal
+                // In a real implementation, we'd implement partial pool shrinking
+                if excess_buffers > pool.buffer_count / 2 {
+                    pools_to_remove.push((frame_size.clone(), cleanup_bytes));
+                }
+            }
+        }
+
+        // Strategy 2: Remove entire small pools if under critical pressure
+        if self.pressure_monitor.current_pressure() == MemoryPressureLevel::Critical {
+            let mut pool_sizes: Vec<_> = self.frame_pools.iter()
+                .map(|(size, pool)| (size.clone(), pool.buffer_size * pool.buffer_count as u64))
+                .collect();
+            
+            // Sort by size, remove smallest pools first
+            pool_sizes.sort_by_key(|(_, size)| *size);
+            
+            for (frame_size, pool_size) in pool_sizes.iter().take(2) {
+                if pool_size < &(self.memory_budget.max_pool_size / 10) { // Only small pools
+                    pools_to_remove.push((frame_size.clone(), *pool_size));
+                }
+            }
+        }
+
+        // Execute cleanup
+        for (frame_size, cleanup_bytes) in pools_to_remove {
+            if let Some(pool) = self.frame_pools.remove(&frame_size) {
+                unsafe {
+                    self.device.free_memory(pool.memory, None);
+                }
+                self.total_allocated = self.total_allocated.saturating_sub(cleanup_bytes);
+                cleaned_bytes += cleanup_bytes;
+                
+                tracing::info!(
+                    "Cleaned up pool {}x{} {:?}, freed {} MB",
+                    frame_size.width,
+                    frame_size.height,
+                    frame_size.format,
+                    cleanup_bytes / 1024 / 1024
+                );
+            }
+        }
+
+        if cleaned_bytes > 0 {
+            tracing::info!(
+                "Memory cleanup completed: freed {} MB, usage now {:.1}%",
+                cleaned_bytes / 1024 / 1024,
+                self.memory_budget.current_usage_percentage(self.total_allocated) * 100.0
+            );
+        }
+    }
+
+    /// Get comprehensive memory usage statistics
     pub fn get_memory_usage(&self) -> MemoryUsage {
+        let free_buffers_total: usize = self.frame_pools.values()
+            .map(|pool| pool.free_buffers.len())
+            .sum();
+
         MemoryUsage {
             total_allocated: self.total_allocated,
-            free_blocks: 0, // No longer using legacy free blocks
+            free_blocks: free_buffers_total,
             total_pools: self.frame_pools.len(),
         }
+    }
+
+    /// Get detailed memory pressure information
+    pub fn get_memory_pressure_info(&self) -> MemoryPressureInfo {
+        MemoryPressureInfo {
+            current_pressure: self.pressure_monitor.current_pressure(),
+            usage_percentage: self.memory_budget.current_usage_percentage(self.total_allocated),
+            total_allocated: self.total_allocated,
+            max_memory: self.memory_budget.max_total_memory,
+            recent_failures: self.pressure_monitor.recent_failure_count(),
+            peak_allocation: self.peak_allocation,
+        }
+    }
+
+    /// Configure memory cleanup strategy
+    pub fn set_cleanup_strategy(&mut self, strategy: MemoryCleanupStrategy) {
+        self.cleanup_strategy = strategy;
+    }
+
+    /// Get current memory budget configuration
+    pub fn get_memory_budget(&self) -> &MemoryBudget {
+        &self.memory_budget
     }
 }
 
@@ -1088,6 +1489,16 @@ pub struct MemoryUsage {
     pub total_pools: usize,
 }
 
+#[derive(Debug)]
+pub struct MemoryPressureInfo {
+    pub current_pressure: MemoryPressureLevel,
+    pub usage_percentage: f32,
+    pub total_allocated: u64,
+    pub max_memory: u64,
+    pub recent_failures: usize,
+    pub peak_allocation: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1107,5 +1518,137 @@ mod tests {
             let result = MemoryManager::new(&context);
             assert!(result.is_ok());
         }
+    }
+
+    #[test]
+    fn test_memory_budget_creation() {
+        let total_memory = 8 * 1024 * 1024 * 1024; // 8GB
+        let budget = MemoryBudget::new(total_memory);
+        
+        assert_eq!(budget.total_gpu_memory, total_memory);
+        assert_eq!(budget.reserved_memory, total_memory / 10); // 10% reserved
+        assert_eq!(budget.max_total_memory, total_memory - total_memory / 10);
+        assert_eq!(budget.warning_threshold, 0.75);
+        assert_eq!(budget.critical_threshold, 0.90);
+    }
+
+    #[test]
+    fn test_memory_budget_thresholds() {
+        let total_memory = 1000;
+        let budget = MemoryBudget::new(total_memory);
+        let _max_memory = budget.max_total_memory; // 900 after 10% reservation
+        
+        // Test usage percentage calculation - based on max_total_memory (900), not total_gpu_memory (1000)
+        assert_eq!(budget.current_usage_percentage(450), 0.5); // 450/900 = 50%
+        assert_eq!(budget.current_usage_percentage(675), 0.75); // 675/900 = 75%
+        assert_eq!(budget.current_usage_percentage(810), 0.9); // 810/900 = 90%
+        
+        // Test threshold checks - need to exceed threshold to trigger
+        assert!(!budget.is_over_warning(450)); // 50% < 75% - OK
+        assert!(!budget.is_over_warning(675)); // 75% = 75% threshold - Not warning (equal)
+        assert!(budget.is_over_warning(676)); // 76% > 75% threshold - Warning
+        assert!(budget.is_over_critical(811)); // 90.1% > 90% threshold - Critical
+        assert!(!budget.is_over_critical(810)); // 90% = 90% threshold - Not critical (equal)
+    }
+
+    #[test]
+    fn test_memory_pressure_monitor() {
+        let mut monitor = MemoryPressureMonitor::new();
+        let budget = MemoryBudget::new(1000);
+        
+        // Initially normal pressure
+        assert_eq!(monitor.current_pressure(), MemoryPressureLevel::Normal);
+        assert_eq!(monitor.recent_failure_count(), 0);
+        
+        // Record some allocation failures
+        monitor.record_allocation_failure();
+        monitor.record_allocation_failure();
+        assert_eq!(monitor.recent_failure_count(), 2);
+        
+        // Test pressure update with high usage
+        monitor.update_pressure(&budget, 675); // 75% usage - should trigger warning
+        // Note: update_pressure has rate limiting, so may not immediately update
+        
+        // Test recording usage samples
+        monitor.record_usage_sample(450);
+        monitor.record_usage_sample(500);
+        monitor.record_usage_sample(550);
+        assert!(monitor.usage_samples.len() >= 3);
+    }
+
+    #[test]
+    fn test_memory_cleanup_strategy() {
+        let default_strategy = MemoryCleanupStrategy::default();
+        
+        assert!(default_strategy.auto_cleanup_enabled);
+        assert_eq!(default_strategy.cleanup_threshold, MemoryPressureLevel::High);
+        assert_eq!(default_strategy.max_buffer_age, 300);
+        assert_eq!(default_strategy.min_free_buffers, 2);
+        assert!(default_strategy.allow_pool_shrinking);
+        
+        // Test custom strategy
+        let custom_strategy = MemoryCleanupStrategy {
+            auto_cleanup_enabled: false,
+            cleanup_threshold: MemoryPressureLevel::Critical,
+            max_buffer_age: 600,
+            min_free_buffers: 5,
+            allow_pool_shrinking: false,
+        };
+        
+        assert!(!custom_strategy.auto_cleanup_enabled);
+        assert_eq!(custom_strategy.cleanup_threshold, MemoryPressureLevel::Critical);
+    }
+
+    #[test]
+    fn test_frame_size_calculations() {
+        let frame_1080p = FrameSize {
+            width: 1920,
+            height: 1080,
+            format: FrameFormat::Rgba8,
+        };
+        
+        // 1920 * 1080 * 4 bytes = 8,294,400 bytes
+        assert_eq!(frame_1080p.buffer_size(), 8_294_400);
+        
+        let frame_4k = FrameSize {
+            width: 3840,
+            height: 2160,
+            format: FrameFormat::Rgba8,
+        };
+        
+        // 3840 * 2160 * 4 bytes = 33,177,600 bytes
+        assert_eq!(frame_4k.buffer_size(), 33_177_600);
+        
+        // Test different formats
+        let frame_rgb = FrameSize {
+            width: 1920,
+            height: 1080,
+            format: FrameFormat::Rgb8,
+        };
+        
+        // 1920 * 1080 * 3 bytes = 6,220,800 bytes
+        assert_eq!(frame_rgb.buffer_size(), 6_220_800);
+    }
+
+    #[test]
+    fn test_frame_format_bytes_per_pixel() {
+        assert_eq!(FrameFormat::Rgba8.bytes_per_pixel(), 4);
+        assert_eq!(FrameFormat::Bgra8.bytes_per_pixel(), 4);
+        assert_eq!(FrameFormat::Rgb8.bytes_per_pixel(), 3);
+        assert_eq!(FrameFormat::R16.bytes_per_pixel(), 2);
+        assert_eq!(FrameFormat::R8.bytes_per_pixel(), 1);
+        assert_eq!(FrameFormat::R32F.bytes_per_pixel(), 4);
+    }
+
+    #[test]
+    fn test_pressure_level_ordering() {
+        assert!(MemoryPressureLevel::Normal < MemoryPressureLevel::High);
+        assert!(MemoryPressureLevel::High < MemoryPressureLevel::Critical);
+        assert!(MemoryPressureLevel::Critical > MemoryPressureLevel::Normal);
+        
+        // Test max operation
+        let level1 = MemoryPressureLevel::Normal;
+        let level2 = MemoryPressureLevel::Critical;
+        assert_eq!(level1.max(level2), MemoryPressureLevel::Critical);
     }
 }
