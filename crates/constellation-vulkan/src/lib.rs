@@ -282,7 +282,10 @@ impl VulkanContext {
                 vk::FALSE
             },
             // Critical for video processing compute operations
-            shader_storage_image_write_without_format: if available_features.shader_storage_image_write_without_format == vk::TRUE {
+            shader_storage_image_write_without_format: if available_features
+                .shader_storage_image_write_without_format
+                == vk::TRUE
+            {
                 vk::TRUE
             } else {
                 tracing::warn!("Storage image write without format not available - may impact video processing performance");
@@ -324,10 +327,8 @@ impl VulkanContext {
         }
 
         unsafe {
-            instance.get_physical_device_queue_family_properties2(
-                physical_device,
-                &mut queue_families,
-            );
+            instance
+                .get_physical_device_queue_family_properties2(physical_device, &mut queue_families);
         }
 
         // Truncate to actual count and extract properties
