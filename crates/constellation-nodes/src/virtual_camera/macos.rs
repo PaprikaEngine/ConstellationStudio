@@ -22,7 +22,12 @@ use constellation_core::VideoFrame;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+// Phase 1: Simplified Core Media bindings
+// Full Core Media I/O Extensions integration will be implemented in Phase 2
+
 /// macOS virtual webcam implementation using Core Media I/O Extensions
+/// Phase 1: Basic implementation with frame buffering
+/// Phase 2: Full Core Media I/O Extensions integration
 pub struct MacOSVirtualWebcam {
     device_name: String,
     width: u32,
@@ -30,7 +35,9 @@ pub struct MacOSVirtualWebcam {
     fps: u32,
     format: VideoFormat,
     is_active: Arc<AtomicBool>,
-    device_id: Option<String>, // Use String instead of CFString for thread safety
+    device_id: Option<String>,
+    // Phase 1: Simple frame counter for timing
+    frame_count: u64,
 }
 
 impl VirtualWebcamBackend for MacOSVirtualWebcam {
@@ -43,6 +50,7 @@ impl VirtualWebcamBackend for MacOSVirtualWebcam {
             format: VideoFormat::BGRA32, // macOS prefers BGRA
             is_active: Arc::new(AtomicBool::new(false)),
             device_id: None,
+            frame_count: 0,
         })
     }
 
@@ -83,9 +91,9 @@ impl VirtualWebcamBackend for MacOSVirtualWebcam {
             return Err(anyhow!("Virtual webcam is not active"));
         }
 
-        // Convert frame to CMSampleBuffer and send to virtual device
-        let sample_buffer = self.create_sample_buffer(frame)?;
-        self.send_sample_buffer(sample_buffer)?;
+        // Process frame and simulate sending to virtual device
+        let processed_data = self.process_frame(frame)?;
+        self.send_processed_frame(processed_data)?;
 
         Ok(())
     }
@@ -120,74 +128,82 @@ impl VirtualWebcamBackend for MacOSVirtualWebcam {
 
 impl MacOSVirtualWebcam {
     /// Create Core Media I/O virtual camera device
+    /// Phase 1: Basic device simulation
     fn create_virtual_device(&mut self) -> Result<()> {
-        // This would use Core Media I/O Extensions API
-        // For now, we'll create a placeholder implementation
+        tracing::debug!("Creating Core Media I/O virtual device (Phase 1)");
 
-        // In a real implementation, this would:
-        // 1. Create CMIOExtensionDevice
-        // 2. Configure video stream properties
-        // 3. Register device with system
-        // 4. Start streaming capability
-
-        tracing::debug!("Creating Core Media I/O virtual device");
-
-        // Placeholder: Generate a unique device identifier
+        // Generate a unique device identifier
         let uuid = uuid::Uuid::new_v4();
         let device_id = format!("constellation-{uuid}");
         self.device_id = Some(device_id);
+
+        // Reset frame counter
+        self.frame_count = 0;
+
+        tracing::info!(
+            "Created virtual camera device: {} ({}x{}@{}fps)",
+            self.device_name,
+            self.width,
+            self.height,
+            self.fps
+        );
+
+        // Phase 1: Log device creation for development
+        // Phase 2 will implement:
+        // - CMIOExtensionDevice creation
+        // - System registration
+        // - Stream configuration
+        // - App compatibility layer
 
         Ok(())
     }
 
     /// Destroy virtual camera device
+    /// Phase 1: Basic cleanup
     fn destroy_virtual_device(&mut self) -> Result<()> {
-        if let Some(_device_id) = &self.device_id {
-            // In a real implementation, this would:
-            // 1. Stop streaming
-            // 2. Unregister device from system
-            // 3. Cleanup resources
+        if let Some(device_id) = &self.device_id {
+            tracing::debug!("Destroying Core Media I/O virtual device: {}", device_id);
 
-            tracing::debug!("Destroying Core Media I/O virtual device");
+            // Phase 1: Simple cleanup
             self.device_id = None;
+            self.frame_count = 0;
+
+            // Phase 2 will implement:
+            // - Stop active streams
+            // - Unregister device from system
+            // - Release Core Media resources
+
+            tracing::info!("Virtual camera device destroyed");
         }
 
         Ok(())
     }
 
-    /// Create sample buffer from VideoFrame
-    fn create_sample_buffer(&self, frame: &VideoFrame) -> Result<Vec<u8>> {
-        // Simple implementation: convert VideoFrame to raw buffer
-        // TODO: Implement proper CMSampleBuffer creation with Core Media framework
-
-        let expected_size = (self.width * self.height * 4) as usize; // BGRA32 = 4 bytes per pixel
-
-        if frame.data.len() != expected_size {
-            tracing::warn!(
-                "Frame data size mismatch: expected {}, got {}. Converting...",
-                expected_size,
-                frame.data.len()
-            );
-        }
-
-        // Convert RGBA to BGRA for macOS if needed
-        let converted_data = if frame.format == constellation_core::VideoFormat::Rgba8 {
+    /// Process VideoFrame for virtual webcam output
+    /// Phase 1: Basic frame processing and logging
+    fn process_frame(&mut self, frame: &VideoFrame) -> Result<Vec<u8>> {
+        // Convert frame data if necessary
+        let processed_data = if frame.format == constellation_core::VideoFormat::Rgba8 {
             self.convert_rgba_to_bgra(&frame.data)
         } else {
             frame.data.clone()
         };
 
-        // For now, return the raw frame data as a simple buffer
-        // In a complete implementation, this would create a CMSampleBuffer
+        // Increment frame counter for timing reference
+        self.frame_count += 1;
+
         tracing::debug!(
-            "Created sample buffer: {}x{} format={:?} size={}",
+            "Processed frame {}: {}x{} format={:?} size={}",
+            self.frame_count,
             frame.width,
             frame.height,
             frame.format,
-            converted_data.len()
+            processed_data.len()
         );
 
-        Ok(converted_data)
+        // Phase 1: Return processed frame data
+        // Phase 2 will implement actual CMSampleBuffer creation
+        Ok(processed_data)
     }
 
     /// Convert RGBA to BGRA format for macOS compatibility
@@ -207,21 +223,31 @@ impl MacOSVirtualWebcam {
         bgra_data
     }
 
-    /// Send sample buffer to virtual device
-    fn send_sample_buffer(&self, sample_buffer: Vec<u8>) -> Result<()> {
-        // This would send the sample buffer to the active virtual device stream
-        // In a real implementation, this would use CMIOExtensionDevice methods
-
+    /// Send processed frame data to virtual device
+    /// Phase 1: Simulate frame delivery to virtual webcam
+    fn send_processed_frame(&self, frame_data: Vec<u8>) -> Result<()> {
         if let Some(device_id) = &self.device_id {
             tracing::debug!(
                 "Sending {} bytes to virtual device: {}",
-                sample_buffer.len(),
+                frame_data.len(),
                 device_id
             );
 
-            // TODO: Implement actual Core Media I/O device communication
-            // For now, just log successful "sending"
-            tracing::trace!("Frame sent successfully to virtual webcam");
+            // Phase 1: Simulate successful frame delivery
+            // Log frame delivery for development and testing
+            tracing::trace!(
+                "Frame {} sent successfully to virtual webcam ({}x{}@{}fps)",
+                self.frame_count,
+                self.width,
+                self.height,
+                self.fps
+            );
+
+            // Phase 2 will implement:
+            // - CMSampleBuffer creation
+            // - CMIOExtensionDevice frame delivery
+            // - Timestamp synchronization
+            // - Format conversion optimization
         } else {
             return Err(anyhow!("No virtual device available"));
         }
@@ -240,30 +266,12 @@ impl Drop for MacOSVirtualWebcam {
     }
 }
 
-// Helper functions for Core Media integration
-mod core_media_helpers {
-    use super::*;
-
-    /// Create format description for video stream
-    pub fn create_format_description(
-        _width: u32,
-        _height: u32,
-        _format: VideoFormat,
-    ) -> Result<String> {
-        // This would create appropriate format description for the video format
-        Err(anyhow!("Format description creation not yet implemented"))
-    }
-
-    /// Convert VideoFormat to Core Media pixel format
-    pub fn video_format_to_pixel_format(format: VideoFormat) -> u32 {
-        match format {
-            VideoFormat::BGRA32 => 0x42475241, // 'BGRA'
-            VideoFormat::RGB24 => 0x52474220,  // 'RGB '
-            VideoFormat::YUV420 => 0x34323076, // '420v'
-            VideoFormat::NV12 => 0x3132766E,   // 'nv12'
-        }
-    }
-}
+// Phase 2 implementation will include:
+// - Full Core Media I/O Extensions integration
+// - CMIOExtensionDevice creation and management
+// - CMSampleBuffer creation with proper timing
+// - System-level virtual camera registration
+// - App compatibility layer for Zoom/Teams/OBS
 
 #[cfg(test)]
 mod tests {
