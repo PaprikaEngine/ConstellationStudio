@@ -104,7 +104,13 @@ impl VulkanContext {
             c"VK_LAYER_KHRONOS_validation".as_ptr(),
         ];
 
-        let extension_names = [];
+        // Essential extensions for video processing and modern GPU features
+        let extension_names = [
+            #[cfg(debug_assertions)]
+            c"VK_EXT_debug_utils".as_ptr(),
+            c"VK_KHR_get_physical_device_properties2".as_ptr(),
+            c"VK_KHR_external_memory_capabilities".as_ptr(),
+        ];
 
         let create_info = vk::InstanceCreateInfo {
             p_application_info: &app_info,
@@ -259,9 +265,28 @@ impl VulkanContext {
             },
         ];
 
+        // Validate and enable only available features for optimal video processing
+        let available_features = unsafe { instance.get_physical_device_features(physical_device) };
+
+        // Helper macro for conditional feature enabling with logging
+        macro_rules! enable_feature {
+            ($feature:ident, $message:expr) => {
+                if available_features.$feature == vk::TRUE {
+                    vk::TRUE
+                } else {
+                    tracing::warn!($message);
+                    vk::FALSE
+                }
+            };
+        }
+
         let device_features = vk::PhysicalDeviceFeatures {
-            geometry_shader: vk::TRUE,
-            tessellation_shader: vk::TRUE,
+            geometry_shader: enable_feature!(geometry_shader, "Geometry shader not available, continuing without it"),
+            tessellation_shader: enable_feature!(tessellation_shader, "Tessellation shader not available, continuing without it"),
+            shader_storage_image_write_without_format: enable_feature!(
+                shader_storage_image_write_without_format,
+                "Storage image write without format not available - may impact video processing performance"
+            ),
             ..Default::default()
         };
 
@@ -291,8 +316,31 @@ impl VulkanContext {
         instance: &Instance,
         physical_device: vk::PhysicalDevice,
     ) -> VulkanResult<QueueFamilyIndices> {
-        let queue_families =
-            unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
+        // Use modern API with standard two-call idiom for proper queue family enumeration
+        // First call: get the count with empty vec
+        let mut queue_families = vec![];
+        unsafe {
+            instance
+                .get_physical_device_queue_family_properties2(physical_device, &mut queue_families);
+        }
+        let queue_family_count = queue_families.len();
+
+        // Second call: get the actual properties with properly sized and initialized vec
+        let mut queue_families = vec![vk::QueueFamilyProperties2::default(); queue_family_count];
+        for queue_family in &mut queue_families {
+            queue_family.s_type = vk::StructureType::QUEUE_FAMILY_PROPERTIES_2;
+        }
+
+        unsafe {
+            instance
+                .get_physical_device_queue_family_properties2(physical_device, &mut queue_families);
+        }
+
+        // Extract properties from the validated result
+        let queue_family_properties: Vec<vk::QueueFamilyProperties> = queue_families
+            .into_iter()
+            .map(|qf| qf.queue_family_properties)
+            .collect();
 
         // Optimal queue family selection for video processing workloads
         let mut graphics_family = None;
@@ -300,7 +348,7 @@ impl VulkanContext {
         let mut transfer_family = None;
 
         // First pass: Find dedicated queues for optimal performance
-        for (index, queue_family) in queue_families.iter().enumerate() {
+        for (index, queue_family) in queue_family_properties.iter().enumerate() {
             let index = index as u32;
 
             // Prefer dedicated compute queue (without graphics) for parallel processing
@@ -332,7 +380,7 @@ impl VulkanContext {
         }
 
         // Second pass: Fallback to shared queues if needed
-        for (index, queue_family) in queue_families.iter().enumerate() {
+        for (index, queue_family) in queue_family_properties.iter().enumerate() {
             let index = index as u32;
 
             // Fallback compute queue (can be shared with graphics)
@@ -387,8 +435,10 @@ impl VulkanContext {
         let mut command_pools = Vec::new();
 
         for &index in &indices {
+            // Optimized flags for video processing workloads
             let pool_create_info = vk::CommandPoolCreateInfo {
-                flags: vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
+                flags: vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER
+                    | vk::CommandPoolCreateFlags::TRANSIENT,
                 queue_family_index: index,
                 ..Default::default()
             };
