@@ -265,32 +265,28 @@ impl VulkanContext {
             },
         ];
 
-        // Validate and enable only available features
+        // Validate and enable only available features for optimal video processing
         let available_features = unsafe { instance.get_physical_device_features(physical_device) };
+
+        // Helper macro for conditional feature enabling with logging
+        macro_rules! enable_feature {
+            ($feature:ident, $message:expr) => {
+                if available_features.$feature == vk::TRUE {
+                    vk::TRUE
+                } else {
+                    tracing::warn!($message);
+                    vk::FALSE
+                }
+            };
+        }
+
         let device_features = vk::PhysicalDeviceFeatures {
-            // Only enable if available - essential for video processing
-            geometry_shader: if available_features.geometry_shader == vk::TRUE {
-                vk::TRUE
-            } else {
-                tracing::warn!("Geometry shader not available, continuing without it");
-                vk::FALSE
-            },
-            tessellation_shader: if available_features.tessellation_shader == vk::TRUE {
-                vk::TRUE
-            } else {
-                tracing::warn!("Tessellation shader not available, continuing without it");
-                vk::FALSE
-            },
-            // Critical for video processing compute operations
-            shader_storage_image_write_without_format: if available_features
-                .shader_storage_image_write_without_format
-                == vk::TRUE
-            {
-                vk::TRUE
-            } else {
-                tracing::warn!("Storage image write without format not available - may impact video processing performance");
-                vk::FALSE
-            },
+            geometry_shader: enable_feature!(geometry_shader, "Geometry shader not available, continuing without it"),
+            tessellation_shader: enable_feature!(tessellation_shader, "Tessellation shader not available, continuing without it"),
+            shader_storage_image_write_without_format: enable_feature!(
+                shader_storage_image_write_without_format,
+                "Storage image write without format not available - may impact video processing performance"
+            ),
             ..Default::default()
         };
 
@@ -320,8 +316,17 @@ impl VulkanContext {
         instance: &Instance,
         physical_device: vk::PhysicalDevice,
     ) -> VulkanResult<QueueFamilyIndices> {
-        // Use modern API for better extensibility and video processing support
-        let mut queue_families = vec![vk::QueueFamilyProperties2::default(); 16];
+        // Use modern API with standard two-call idiom for proper queue family enumeration
+        // First call: get the count with empty vec
+        let mut queue_families = vec![];
+        unsafe {
+            instance
+                .get_physical_device_queue_family_properties2(physical_device, &mut queue_families);
+        }
+        let queue_family_count = queue_families.len();
+
+        // Second call: get the actual properties with properly sized and initialized vec
+        let mut queue_families = vec![vk::QueueFamilyProperties2::default(); queue_family_count];
         for queue_family in &mut queue_families {
             queue_family.s_type = vk::StructureType::QUEUE_FAMILY_PROPERTIES_2;
         }
@@ -331,10 +336,9 @@ impl VulkanContext {
                 .get_physical_device_queue_family_properties2(physical_device, &mut queue_families);
         }
 
-        // Truncate to actual count and extract properties
+        // Extract properties from the validated result
         let queue_family_properties: Vec<vk::QueueFamilyProperties> = queue_families
             .into_iter()
-            .take_while(|qf| qf.queue_family_properties.queue_count > 0)
             .map(|qf| qf.queue_family_properties)
             .collect();
 
