@@ -431,7 +431,9 @@ struct QueueFamilyIndices {
 /// Implements pre-allocated memory pools with zero-allocation frame buffer management
 pub struct MemoryManager {
     device: Device,
+    #[allow(dead_code)] // Phase 2: Will be used for advanced memory type selection
     physical_device: vk::PhysicalDevice,
+    #[allow(dead_code)] // Phase 2: Will be used for memory heap analysis
     memory_properties: vk::PhysicalDeviceMemoryProperties,
 
     // Pre-allocated pools for different frame sizes
@@ -449,6 +451,7 @@ pub struct MemoryManager {
     // Memory type indices for optimal performance
     device_local_memory_type: u32,
     host_visible_memory_type: u32,
+    #[allow(dead_code)] // Phase 2: Will be used for cached memory optimization
     host_coherent_memory_type: u32,
 }
 
@@ -490,8 +493,10 @@ impl FrameSize {
 struct MemoryPool {
     memory: vk::DeviceMemory,
     buffer_size: u64,
+    #[allow(dead_code)] // Phase 2: Will be used for pool size validation
     buffer_count: u32,
     free_buffers: VecDeque<u32>, // Buffer indices
+    #[allow(dead_code)] // Phase 2: Will be used for sub-allocation within pools
     allocation_offset: u64,
     memory_type_index: u32,
 }
@@ -752,6 +757,7 @@ pub struct ComputePipelineManager {
 pub struct ComputePipeline {
     pipeline: vk::Pipeline,
     workgroup_size: [u32; 3],
+    #[allow(dead_code)] // Phase 2: Will be used for pipeline management and validation
     operation_type: VideoOperation,
 }
 
