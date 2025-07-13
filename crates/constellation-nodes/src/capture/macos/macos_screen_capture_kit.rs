@@ -120,21 +120,16 @@ impl ScreenCaptureKitCapture {
 
     fn convert_cg_image_to_frame_data(
         &self,
-        _image: *mut core_graphics::sys::CGImage,
+        image: *mut core_graphics::sys::CGImage,
     ) -> Result<Vec<u8>> {
-        // Phase 1: Simplified implementation that captures actual screen content
-        // For now, we'll create a new capture to get real screen pixels
+        // Phase 1: Use the image passed from the caller
         let width = self.width;
         let height = self.height;
 
         tracing::debug!("Screen capture: {}x{} pixels", width, height);
 
-        // Create a new screen capture to get current screen content
-        let cg_display = unsafe { CGMainDisplayID() };
-        let capture_image = unsafe { core_graphics::display::CGDisplayCreateImage(cg_display) };
-
-        if capture_image.is_null() {
-            tracing::warn!("Failed to create screen capture image, using fallback pattern");
+        if image.is_null() {
+            tracing::warn!("Received a null CGImage, using fallback pattern");
             return self.create_fallback_pattern();
         }
 
@@ -144,7 +139,7 @@ impl ScreenCaptureKitCapture {
         let mut rgba_buffer = vec![0u8; rgba_size];
 
         // Create a pattern that represents the actual screen capture
-        // In Phase 2, this will be replaced with actual pixel extraction
+        // In Phase 2, this will be replaced with actual pixel extraction from the image
         self.create_screen_capture_pattern(&mut rgba_buffer);
 
         tracing::info!(
@@ -199,18 +194,6 @@ impl ScreenCaptureKitCapture {
                     rgba_buffer[offset + 2] = base_color; // B
                     rgba_buffer[offset + 3] = 255; // A
                 }
-            }
-        }
-    }
-
-    /// Convert premultiplied alpha to straight alpha
-    fn convert_premultiplied_to_straight(&self, rgba_buffer: &mut [u8]) {
-        for chunk in rgba_buffer.chunks_exact_mut(4) {
-            let alpha = chunk[3] as f32 / 255.0;
-            if alpha > 0.0 {
-                chunk[0] = ((chunk[0] as f32 / alpha).min(255.0)) as u8; // R
-                chunk[1] = ((chunk[1] as f32 / alpha).min(255.0)) as u8; // G
-                chunk[2] = ((chunk[2] as f32 / alpha).min(255.0)) as u8; // B
             }
         }
     }
@@ -363,7 +346,7 @@ impl ScreenCaptureKitWindowCapture {
 
     fn convert_cg_image_to_frame_data(
         &self,
-        _image: *mut core_graphics::sys::CGImage,
+        image: *mut core_graphics::sys::CGImage,
     ) -> Result<Vec<u8>> {
         // Phase 1: Simplified window capture implementation
         let width = self.width;
@@ -371,10 +354,17 @@ impl ScreenCaptureKitWindowCapture {
 
         tracing::debug!("Window capture: {}x{} pixels", width, height);
 
+        if image.is_null() {
+            tracing::warn!("Received a null window CGImage, using fallback pattern");
+            return self.create_window_fallback_pattern();
+        }
+
         // Create window capture pattern that's distinct from screen capture
         let rgba_size = (width * height * 4) as usize;
         let mut rgba_buffer = vec![0u8; rgba_size];
 
+        // For Phase 1, create a pattern indicating we have a valid window image
+        // In Phase 2, this will extract actual pixels from the image
         self.create_window_capture_pattern(&mut rgba_buffer);
 
         tracing::info!(
@@ -384,6 +374,29 @@ impl ScreenCaptureKitWindowCapture {
             rgba_buffer.len()
         );
 
+        Ok(rgba_buffer)
+    }
+
+    fn create_window_fallback_pattern(&self) -> Result<Vec<u8>> {
+        let width = self.width;
+        let height = self.height;
+        let rgba_size = (width * height * 4) as usize;
+        let mut rgba_buffer = vec![0u8; rgba_size];
+
+        // Create a distinct fallback pattern for window capture
+        for y in 0..height {
+            for x in 0..width {
+                let offset = ((y * width + x) * 4) as usize;
+                if offset + 3 < rgba_buffer.len() {
+                    let intensity = ((x + y) as f32 / (width + height) as f32 * 128.0) as u8;
+
+                    rgba_buffer[offset] = intensity; // R
+                    rgba_buffer[offset + 1] = 64; // G (low green for fallback)
+                    rgba_buffer[offset + 2] = 192; // B (high blue for fallback)
+                    rgba_buffer[offset + 3] = 255; // A
+                }
+            }
+        }
         Ok(rgba_buffer)
     }
 
